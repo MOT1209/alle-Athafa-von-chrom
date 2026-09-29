@@ -3,7 +3,9 @@
 هذا المستودع سيجمع **كل الإضافات**، ولكل إضافة مجلد مستقل قائم بذاته.
 الإضافة الحالية: `kingdev/`.
 
-> آخر تحديث: بعد نقل المشروع إلى `kingdev/` والتحقق من نجاح الاختبارات (257/257).
+> آخر تحديث: اكتملت المرحلة 1 — هيكل MV3 مبني ومُختبَر (`npm run verify` + `npm run e2e` ينجحان).
+> القرارات المحسومة للمرحلة 1: أذونات دنيا في الـ manifest (`storage`) مع `<all_urls>` و`scripting`
+> كأذونات اختيارية · الموافقة لكل ميزة على حدة · لوحة DevTools بتبويبات (Issues / Network / Analysis / Settings).
 
 ---
 
@@ -25,16 +27,28 @@
 
 **المجموع:** 257 اختبار / 8 ملفات · تغطية 96.15% · typecheck نظيف · Biome بلا أخطاء.
 
+### مبنية في المرحلة 1 ✅
+
+| الوحدة | الدور |
+|---|---|
+| `manifest.json` | MV3: `storage` فقط إلزامي؛ `scripting` اختياري؛ `<all_urls>` في `optional_host_permissions`؛ `devtools_page` + `options_ui` |
+| `src/background/service-worker.ts` | مخزن الإعدادات والمفاتيح والجلسات + مرآة السجل في `storage.session` + موجّه رسائل يغطي كل `PanelToWorkerMessage` |
+| `src/browser/content/error-capture.ts` | التقاط `error`/`unhandledrejection`/أخطاء الموارد + تجميع بالبصمة قبل الإرسال |
+| `src/browser/devtools/panel.ts` + `devtools.html` | إنشاء لوحة KingDev في DevTools |
+| `src/ui/` (`app.tsx`, `rpc.ts`, `main.tsx`, `panel.html`, `options.html`) | واجهة التبويبات + عمول RPC مُنمَّط + حوار الموافقة (عرضًا؛ الربط في المرحلة 2) |
+| `scripts/build.mjs` | esbuild بأربع نقاط دخول + نسخ الأصول + تحقق من اكتمال الحزمة |
+| `scripts/e2e.mjs` | 27 فحصًا: صحة manifest، وجود كل ملف مُشار إليه، لا Node builtins في الحِزم، عقد سكربت المحتوى |
+| `icons/` | أيقونات PNG مؤقتة (شمعونة) حتى يُصمم الشعار النهائي |
+
 ### غير مبنية ❌
 
-- هيكل الإضافة MV3: `manifest.json`, `src/background/`, `src/browser/devtools/`, `src/ui/main.tsx`
-- `scripts/build.mjs` و `scripts/e2e.mjs` (لا يمكن بناؤهما قبل وجود نقاط الدخول)
-- Debug Assistant — تنسيق الواجهة ومزودو الذكاء الاصطناعي
-- Agent Prompt Engine
-- واجهة React للوحة DevTools
+- ربط الموافقة الفعلي: `chrome.permissions.request`، تخزين `ConsentState`، `reconcilePermissions()` في صفحة التشخيص (المرحلة 2)
+- جسر HAR (`chrome.devtools.network.getHAR()`) وعرض الشبكة الحقيقي (المرحلة 3)
+- Debug Assistant — مزودو الذكاء الاصطناعي (المرحلة 3)
+- Agent Prompt Engine (المرحلة 4)
+- اختبارات مكوّنات React بـ jsdom (واجهة `src/ui` مستثناة من التغطية مؤقتًا)
 
-> **ملاحظة:** `npm run build` و `npm run e2e` لا يعملان حاليًا. لم نكتب السكربتات
-> عمدًا، لأن كتابة `build` على Points دخول غير موجودة ينتج بناءً ناجحًا لا يشحن شيئًا.
+> `npm run build` و `npm run e2e` يعملان الآن. `npm run verify` كامل (typecheck + lint + test + build) ينجح.
 
 ---
 
@@ -68,20 +82,23 @@
 
 ## 4. المهام المتبقية
 
-### المرحلة 1 — هيكل MV3 ⛔ حاسمة
-تحتاج قرارات من المالك قبل البدء:
-- مجموعة أذونات الـ `manifest.json` النهائية
-- هل الموافقة تُطلب لكل ميزة أم دفعة واحدة؟
-- مسار التنقّل في اللوحة (تبويبات أم لوحة واحدة؟)
+### المرحلة 1 — هيكل MV3 ✅ مكتملة
+القرارات المحسومة: أذونات دنيا + اختيارية · موافقة لكل ميزة · تبويبات.
+
+ملاحظة تنفيذية: `"devtools"` أُسقط من أذونات الـ manifest عمدًا — لوحات DevTools
+تُعلن بمفتاح `devtools_page` بلا إذن، وChrome MV3 يرفض الإذن. `PERMISSIONS.devtools`
+في `permissions.ts` يبقى توثيقًا لدور الميزة لا حرفًا يُرسل إلى Chrome.
 
 المخرجات:
-- [ ] `manifest.json` مستعملًا `requiredManifestPermissions()`
-- [ ] `src/background/service-worker.ts` — الإعدادات + السجل + التوجيه
-- [ ] `src/browser/devtools/panel.ts` + `devtools.html` — إنشاء اللوحة
-- [ ] `src/browser/content/error-capture.ts` — التقاط `error` و`unhandledrejection`
-- [ ] `src/ui/main.tsx` + مكوّنات React
-- [ ] `scripts/build.mjs` (esbuild، 4 نقاط دخول)
-- [ ] `scripts/e2e.mjs` (اختبار تحميل حزمة الحزمة فعليًا)
+- [x] `manifest.json` — أذونات دنيا (`storage`) + `optional_permissions: ["scripting"]` + `optional_host_permissions: ["<all_urls>"]`
+- [x] `src/background/service-worker.ts` — الإعدادات + المفاتيح + الجلسات + السجل + التوجيه
+- [x] `src/browser/devtools/panel.ts` + `devtools.html` — إنشاء اللوحة
+- [x] `src/browser/content/error-capture.ts` — التقاط `error` و`unhandledrejection` وأخطاء الموارد
+- [x] `src/ui/main.tsx` + مكوّنات React (تبويبات: Issues / Network / Analysis / Settings)
+- [x] `scripts/build.mjs` (esbuild، 4 نقاط دخول + تحقق اكتمال الحزمة)
+- [x] `scripts/e2e.mjs` (27 فحصًا على الحزمة المبنية)
+- [ ] `requiredManifestPermissions()` يجب أن يستعمل عند طلب الأذونات الاختيارية في المرحلة 2
+  (الـ manifest الحالي يطابق مخرجه للميزات المحلية؛ التحقق الآلي جزء من ربط الموافقة)
 
 ### المرحلة 2 — ربط الموافقة
 - [ ] تخزين `ConsentState` في `chrome.storage`
@@ -112,11 +129,13 @@
 
 ```bash
 cd kingdev
-npm run typecheck     # tsc --noEmit
-npm run lint          # biome check
-npm test              # 257 اختبار
-npm run test:coverage # يفرض 90/85/80/90
-npm run verify        # كل ما سبق + build (يحتاج المرحلة 1)
+npm run typecheck     # tsc --noEmit — نظيف
+npm run lint          # biome check — 0 أخطاء (تحذيرا fingerprint.ts المعروفان فقط)
+npm test              # 257 اختبارًا
+npm run test:coverage # 96.15% — يفرض 90/85/80/90 وينجح
+npm run build         # dist/ جاهزة للتحميل من chrome://extensions
+npm run e2e           # 27 فحصًا على الحزمة المبنية — ينجح
+npm run verify        # كل ما سبق — ينجح
 ```
 
 ---
@@ -127,3 +146,7 @@ npm run verify        # كل ما سبق + build (يحتاج المرحلة 1)
    الحل طويل المدى: `tsconfig` منفصل لملفات `scripts/`.
 2. تحذيران غير مؤثرين: `noExcessiveCognitiveComplexity` في `fingerprint.ts:174` و `:304`.
 3. لم يُنشأ أي commit حتى الآن — التاريخ غير محفوظ.
+4. أيقونات `icons/*.png` شمعونة (1×1 شفاف) — تحتاج شعارًا حقيقيًا قبل النشر.
+5. `src/ui/**` مستثناة من عتبات التغطية مؤقتًا؛ اختبارات jsdom للمكونات جزء من المرحلة 2.
+6. `content/error-capture.ts` يرسل إلى الـ service worker لكن التخزين المركزي للأخطاء
+   المُجمّعة (وبالتالي عرضها في تبويب Issues) يُبنى في المرحلة 2 مع بوابة الموافقة.

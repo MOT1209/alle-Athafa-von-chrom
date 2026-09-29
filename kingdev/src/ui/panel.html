@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>KingDev</title>
+    <style>
+      /* Panel styles ship inline: a separate CSS file adds a build step for
+         no benefit at this size. Dark-first, matches DevTools default. */
+      :root {
+        color-scheme: light dark;
+        --bd: #d4d4d4;
+        --fg: #1f1f1f;
+        --muted: #6b6b6b;
+        --accent: #2563eb;
+        --warn-bg: #fef3c7;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bd: #3c3c3c;
+          --fg: #e6e6e6;
+          --muted: #9a9a9a;
+          --accent: #60a5fa;
+          --warn-bg: #453411;
+        }
+      }
+      body {
+        font: 12px/1.5 -apple-system, 'Segoe UI', Roboto, sans-serif;
+        color: var(--fg);
+        margin: 0;
+        padding: 8px;
+      }
+      .kingdev-tabs {
+        display: flex;
+        gap: 4px;
+        border-bottom: 1px solid var(--bd);
+        margin-bottom: 8px;
+      }
+      .kingdev-tab {
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        padding: 6px 10px;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+      }
+      .kingdev-tab-active {
+        color: var(--accent);
+        border-bottom-color: var(--accent);
+      }
+      .kingdev-unavailable,
+      .kingdev-empty {
+        color: var(--muted);
+        padding: 12px;
+        border: 1px dashed var(--bd);
+        border-radius: 4px;
+      }
+      .kingdev-egress-warning {
+        background: var(--warn-bg);
+        padding: 8px;
+        border-radius: 4px;
+      }
+      .kingdev-badge {
+        display: inline-block;
+        border-radius: 3px;
+        padding: 0 6px;
+        margin-right: 6px;
+        font-size: 10px;
+        text-transform: uppercase;
+      }
+      .kingdev-sev-high,
+      .kingdev-sev-critical {
+        background: #b91c1c;
+        color: #fff;
+      }
+      .kingdev-sev-medium {
+        background: #b45309;
+        color: #fff;
+      }
+      .kingdev-sev-low,
+      .kingdev-sev-info {
+        background: #4b5563;
+        color: #fff;
+      }
+      .kingdev-issue {
+        padding: 6px 0;
+        border-bottom: 1px solid var(--bd);
+      }
+      .kingdev-issue-cause {
+        color: var(--muted);
+        margin: 4px 0 0;
+      }
+      .kingdev-consent {
+        position: fixed;
+        inset: auto 12px 12px 12px;
+        background: var(--fg);
+        color: var(--bd);
+        border: 1px solid var(--bd);
+        border-radius: 6px;
+        padding: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="ui.js"></script>
+  </body>
+</html>

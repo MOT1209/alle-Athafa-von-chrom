@@ -24,7 +24,9 @@ export default defineConfig({
         'src/browser/content/**',
         'src/browser/devtools/**',
         'src/background/**',
-        'src/ui/main.tsx',
+        // Phase 1 UI shell: rendering is exercised by the e2e package checks;
+        // jsdom-based component tests land with Phase 2 consent wiring.
+        'src/ui/**',
         '**/*.d.ts',
       ],
       // Enforced at 80%+ per project standard, with a little headroom above
