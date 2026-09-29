@@ -102,6 +102,7 @@ const jsEntries = [
   'content/error-capture.js',
   'devtools.js',
   'ui.js',
+  'options.js',
 ];
 
 for (const entry of jsEntries) {
@@ -128,7 +129,37 @@ for (const entry of jsEntries) {
   );
 }
 
-/* 6. Content script contract -------------------------------------------- */
+/* 6. Phase 2 consent contract ------------------------------------------- */
+
+check(
+  'manifest keeps optional scripting grant (consent-gated capture)',
+  (manifest.optional_permissions ?? []).includes('scripting'),
+);
+check(
+  'manifest keeps <all_urls> optional (never installed by default)',
+  (manifest.optional_host_permissions ?? []).includes('<all_urls>'),
+);
+check(
+  'manifest requests no more than the minimal required set',
+  JSON.stringify([...(manifest.permissions ?? [])].sort()) === JSON.stringify(['storage']),
+);
+
+/* 7. Phase 2 consent contract ------------------------------------------ */
+
+check(
+  'manifest keeps optional scripting grant (consent-gated capture)',
+  (manifest.optional_permissions ?? []).includes('scripting'),
+);
+check(
+  'manifest keeps <all_urls> optional (never installed by default)',
+  (manifest.optional_host_permissions ?? []).includes('<all_urls>'),
+);
+check(
+  'manifest requests no more than the minimal required set',
+  JSON.stringify([...(manifest.permissions ?? [])].sort()) === JSON.stringify(['storage']),
+);
+
+/* 8. Content script contract -------------------------------------------- */
 
 const contentScript = join(dist, 'content/error-capture.js');
 if (existsSync(contentScript)) {

@@ -6,7 +6,16 @@
  * shape — the UI never sees a thrown transport error, only an `err(...)`.
  */
 
-import { type KingDevError, type Result, type Settings, err, kingDevError } from '@/core/types';
+import {
+  type CaptureState,
+  type KingDevError,
+  type PermissionsStatus,
+  type Result,
+  type Settings,
+  err,
+  kingDevError,
+} from '@/core/types';
+import type { ConsentState } from '@/security/permissions';
 
 export interface WorkerResponse<T> {
   readonly ok: boolean;
@@ -81,5 +90,39 @@ export class WorkerRpc {
 
   getDiagnostics(): Promise<Result<{ entries: readonly unknown[] }, KingDevError>> {
     return this.call<{ entries: readonly unknown[] }>({ type: 'diagnostics/get' });
+  }
+
+  /* --- Phase 2 ------------------------------------------------------- */
+
+  getConsent(): Promise<Result<ConsentState, KingDevError>> {
+    return this.call<ConsentState>({ type: 'consent/get' });
+  }
+
+  grantConsent(featureId: string): Promise<Result<ConsentState, KingDevError>> {
+    return this.call<ConsentState>({ type: 'consent/grant', featureId });
+  }
+
+  revokeConsent(featureId: string): Promise<Result<ConsentState, KingDevError>> {
+    return this.call<ConsentState>({ type: 'consent/revoke', featureId });
+  }
+
+  getPermissionsStatus(): Promise<Result<PermissionsStatus, KingDevError>> {
+    return this.call<PermissionsStatus>({ type: 'permissions/status' });
+  }
+
+  getCaptureErrors(): Promise<
+    Result<{ errors: readonly unknown[]; state: CaptureState }, KingDevError>
+  > {
+    return this.call<{ errors: readonly unknown[]; state: CaptureState }>({
+      type: 'capture/errors/get',
+    });
+  }
+
+  clearCaptureErrors(): Promise<Result<true, KingDevError>> {
+    return this.call<true>({ type: 'capture/errors/clear' });
+  }
+
+  getCaptureState(): Promise<Result<CaptureState, KingDevError>> {
+    return this.call<CaptureState>({ type: 'capture/state/get' });
   }
 }

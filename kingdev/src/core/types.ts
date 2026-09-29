@@ -906,12 +906,54 @@ export type PanelToWorkerMessage =
   | { readonly type: 'session/get'; readonly id: string }
   | { readonly type: 'session/delete'; readonly id: string }
   | { readonly type: 'log/write'; readonly entries: readonly LogEntry[] }
-  | { readonly type: 'diagnostics/get' };
+  | { readonly type: 'diagnostics/get' }
+  /* --- Phase 2: consent + permissions -------------------------------- */
+  | { readonly type: 'consent/get' }
+  | { readonly type: 'consent/grant'; readonly featureId: string }
+  | { readonly type: 'consent/revoke'; readonly featureId: string }
+  | { readonly type: 'permissions/status' }
+  /* --- Phase 2: capture pipeline ------------------------------------- */
+  | { readonly type: 'capture/errors/get' }
+  | { readonly type: 'capture/errors/clear' }
+  | { readonly type: 'capture/state/get' };
+
+/** Content-script -> worker envelopes (error capture pipeline). */
+export type ContentToWorkerMessage =
+  | { readonly type: 'kingdev/content-error'; readonly error: CapturedError }
+  | { readonly type: 'kingdev/capture-ping' };
 
 export type WorkerToPanelMessage =
   | { readonly type: 'settings/changed'; readonly settings: Settings }
   | { readonly type: 'session/changed' }
-  | { readonly type: 'worker/error'; readonly error: KingDevError };
+  | { readonly type: 'worker/error'; readonly error: KingDevError }
+  /* --- Phase 2 --------------------------------------------------------- */
+  | {
+      readonly type: 'consent/changed';
+      readonly consent: import('@/security/permissions').ConsentState;
+    }
+  | { readonly type: 'capture/updated'; readonly totalErrors: number };
+
+/* --- Phase 2: wire shapes shared between worker and panel ------------- */
+
+/** What the browser currently holds, as the panel sees it. */
+export interface PermissionsStatus {
+  /** Internal permission ids the browser reports right now (no aiAnalysis). */
+  readonly grantedPermissions: readonly string[];
+  /** Raw literals from chrome.permissions.getAll(), for the diagnostics page. */
+  readonly rawPermissions: readonly string[];
+  readonly rawOrigins: readonly string[];
+  /** Feature ids whose optional browser grants are fully present. */
+  readonly featuresWithGrants: readonly string[];
+  /** True when chrome.permissions is reachable in the panel's context. */
+  readonly apiAvailable: boolean;
+}
+
+/** Replayable capture state exposed by the worker. */
+export interface CaptureState {
+  readonly totalErrors: number;
+  readonly distinctErrors: number;
+  readonly lastErrorAt?: ISODateString;
+}
 
 export type PanelToContentMessage =
   | { readonly type: 'snapshot/page' }

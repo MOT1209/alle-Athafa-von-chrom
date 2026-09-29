@@ -157,8 +157,15 @@ export const CONSENT_VERSION = 1;
 
 export interface ConsentState {
   readonly version: number;
-  /** Features the user explicitly turned on. Absence means denied. */
-  readonly grantedFeatures: readonly FeatureId[];
+  /**
+   * Features the user explicitly turned on. Absence means denied. Typed as
+   * `readonly string[]` rather than `readonly FeatureId[]`: the record must be
+   * able to *hold* ids from older versions (features that were renamed or
+   * removed) so the diagnostics page can show what the user actually agreed
+   * to. `evaluateFeatureAccess` denies any id that is not a live feature, so
+   * a stale id can never grant anything.
+   */
+  readonly grantedFeatures: readonly string[];
   /** When consent was recorded, for the diagnostics page. */
   readonly recordedAt: ISODateString;
 }
@@ -286,6 +293,44 @@ export interface PermissionDrift {
   /** Held by the browser but not needed by any enabled feature. */
   readonly surplus: readonly PermissionId[];
 }
+
+/**
+ * The permission ids Chrome reports through `chrome.permissions` — the
+ * `permissions` list plus every granted optional host pattern.
+ *
+ * Chrome never reports an empty-string host pattern, and `has()` resolves
+ * `false` for anything absent, so the mapping is lossless: a permission id is
+ * in the result exactly when Chrome currently holds it.
+ *
+ * `aiAnalysis` is excluded on purpose: it shares the `storage` literal but is
+ * a *logical* permission, decided by consent and the egress gate — never
+ * inferrable from what the browser granted.
+ */
+const LOGICAL_ONLY_PERMISSIONS: ReadonlySet<string> = new Set(['aiAnalysis']);
+
+export function effectiveGrantedPermissions(granted: {
+  permissions: readonly string[];
+  origins: readonly string[];
+}): readonly PermissionId[] {
+  const held = new Set(granted.permissions);
+  if (granted.origins.length > 0) held.add('hostAccess');
+  return PERMISSION_IDS.filter((id) => {
+    if (LOGICAL_ONLY_PERMISSIONS.has(id)) return false;
+    if (id === 'hostAccess') return held.has('hostAccess');
+    return held.has(PERMISSIONS[id].chromePermission);
+  });
+}
+
+/**
+ * The literals `manifest.json` ships with unconditionally. Runtime requests
+ * and revocations subtract these: re-requesting them is a redundant prompt,
+ * and revoking them would break settings persistence for features the user
+ * never touched.
+ *
+ * Kept in sync with `manifest.json` by `scripts/e2e.mjs`, which asserts the
+ * built manifest requests exactly this list.
+ */
+export const MANIFEST_PERMISSIONS: readonly string[] = ['storage'];
 
 /**
  * Compares what the enabled features require against what Chrome actually

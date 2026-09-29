@@ -33,6 +33,13 @@ export interface ErrorCaptureEnvelope {
   readonly error: CapturedError;
 }
 
+/** Worker reply to a capture envelope: accepted, or refused with a reason. */
+export interface CaptureAck {
+  readonly ok: boolean;
+  readonly value?: boolean;
+  readonly error?: { code?: string; message?: string };
+}
+
 export interface ErrorCaptureOptions {
   /** Defaults to the real `window` when omitted. */
   readonly win?: Window;
@@ -41,19 +48,27 @@ export interface ErrorCaptureOptions {
   /** Distinct errors retained before the oldest is dropped. */
   readonly maxBuffer?: number;
   readonly now?: () => number;
+  /**
+   * Worker acknowledgement listener. When the worker refuses an envelope
+   * (consent revoked mid-session) the capture deactivates itself instead of
+   * continuing to buffer and send into a closed gate.
+   */
+  readonly onAck?: (ack: CaptureAck) => void;
 }
 
 export interface ErrorCaptureHandle {
   readonly uninstall: () => void;
   /** Captured-but-not-yet-flushed errors, oldest first. For diagnostics. */
   readonly buffered: readonly CapturedError[];
+  /** False once the worker refused capture (consent revoked) or uninstall ran. */
+  readonly isActive: () => boolean;
 }
 
 /* ------------------------------------------------------------------ *
  * Dispatch
- * ------------------------------------------------------------------ */
-
-function defaultSend(): (envelope: ErrorCaptureEnvelope) => void {
+ * ------------------------------------------------------------------ */ function defaultSend(
+  onAck: ((ack: CaptureAck) => void) | undefined,
+): (envelope: ErrorCaptureEnvelope) => void {
   const runtime = (
     globalThis as {
       chrome?: { runtime?: { sendMessage?: (message: unknown) => unknown } };
@@ -69,8 +84,11 @@ function defaultSend(): (envelope: ErrorCaptureEnvelope) => void {
   const sendMessage = runtime.sendMessage.bind(runtime);
   return (envelope) => {
     try {
-      // The promise result is irrelevant; a closed port must not throw here.
-      void Promise.resolve(sendMessage(envelope)).catch(() => undefined);
+      // A closed port or a refusing worker must not throw here; the ack (when
+      // anyone listens) carries the outcome instead.
+      void Promise.resolve(sendMessage(envelope))
+        .then((reply) => onAck?.(reply as CaptureAck))
+        .catch(() => onAck?.({ ok: false, error: { code: 'PORT_CLOSED' } }));
     } catch {
       // Extension context invalidated mid-session — nothing to do.
     }
@@ -112,7 +130,22 @@ export function installErrorCapture(options: ErrorCaptureOptions = {}): ErrorCap
 
   const now = options.now ?? (() => Date.now());
   const nextId = idFactory(now);
-  const send = options.send ?? defaultSend();
+  let active = true;
+
+  // Consent is revocable at any moment. When the worker refuses an envelope,
+  // deactivate rather than keep buffering: continuing to collect after a
+  // refusal would violate the fail-closed contract one layer up.
+  // Installed before `send` is built so the default transport wires the ack.
+  let acknowledge: ((ack: CaptureAck) => void) | undefined = options.onAck;
+  if (!acknowledge) {
+    acknowledge = (ack) => {
+      if (ack?.ok === false && ack.error?.code === 'CONSENT_REQUIRED') {
+        active = false;
+      }
+    };
+  }
+
+  const send = options.send ?? defaultSend(acknowledge);
   const maxBuffer = options.maxBuffer ?? 200;
 
   const buffer: CapturedError[] = [];
@@ -122,6 +155,7 @@ export function installErrorCapture(options: ErrorCaptureOptions = {}): ErrorCap
   const pageTitle = safePageTitle(win);
 
   function capture(kind: CapturedErrorKind, serialized: SerializedError, sourceUrl?: string): void {
+    if (!active) return;
     const fingerprint = fingerprintSerialized(serialized, kind);
 
     // Consecutive duplicates collapse into occurrences: 200 throws from one
@@ -212,12 +246,14 @@ export function installErrorCapture(options: ErrorCaptureOptions = {}): ErrorCap
 
   const handle: ErrorCaptureHandle = {
     uninstall: () => {
+      active = false;
       win.removeEventListener('error', onError, true);
       win.removeEventListener('error', onResourceError, true);
       win.removeEventListener('unhandledrejection', onUnhandledRejection);
       delete state[INSTALL_FLAG];
     },
     buffered: buffer,
+    isActive: () => active,
   };
 
   state[INSTALL_FLAG] = handle;

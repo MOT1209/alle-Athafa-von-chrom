@@ -29,6 +29,7 @@ const ENTRIES = [
   { in: 'src/browser/content/error-capture.ts', out: 'content/error-capture' },
   { in: 'src/browser/devtools/panel.ts', out: 'devtools' },
   { in: 'src/ui/main.tsx', out: 'ui' },
+  { in: 'src/ui/options.ts', out: 'options' },
 ];
 
 const WATCH = process.argv.includes('--watch');
@@ -69,6 +70,7 @@ function verifyOutput() {
     'devtools.html',
     'panel.html',
     'options.html',
+    'options.js',
     'ui.js',
   ];
   const missing = required.filter((name) => !existsSync(join(dist, name)));

@@ -3,9 +3,8 @@
 هذا المستودع سيجمع **كل الإضافات**، ولكل إضافة مجلد مستقل قائم بذاته.
 الإضافة الحالية: `kingdev/`.
 
-> آخر تحديث: اكتملت المرحلة 1 — هيكل MV3 مبني ومُختبَر (`npm run verify` + `npm run e2e` ينجحان).
-> القرارات المحسومة للمرحلة 1: أذونات دنيا في الـ manifest (`storage`) مع `<all_urls>` و`scripting`
-> كأذونات اختيارية · الموافقة لكل ميزة على حدة · لوحة DevTools بتبويبات (Issues / Network / Analysis / Settings).
+> آخر تحديث: اكتملت المرحلة 2 — ربط الموافقة كاملًا (306 اختبارًا، تغطية 96.19%، `npm run verify` + `npm run e2e` ينجحان).
+> المرحلة 1 مكتملة أيضًا: أذونات دنيا + اختيارية · موافقة لكل ميزة · تبويبات.
 
 ---
 
@@ -40,15 +39,26 @@
 | `scripts/e2e.mjs` | 27 فحصًا: صحة manifest، وجود كل ملف مُشار إليه، لا Node builtins في الحِزم، عقد سكربت المحتوى |
 | `icons/` | أيقونات PNG مؤقتة (شمعونة) حتى يُصمم الشعار النهائي |
 
+### مبنية في المرحلة 2 ✅
+
+| الوحدة | الدور |
+|---|---|
+| `src/security/consent-store.ts` | تخزين `ConsentState` في `chrome.storage.local` عبر منفذ `KeyValueStore` قابل للحقن؛ القراءة التالفة = `NO_CONSENT` (fail-closed)؛ الكتابة تُختم بـ `CONSENT_VERSION` الحالي |
+| `effectiveGrantedPermissions()` في `permissions.ts` | تحويل منح `chrome.permissions` إلى ids داخلية — أي origin ممنوح = `hostAccess`؛ `aiAnalysis` منطقية ولا تُستنتج من حرف `storage` |
+| `MANIFEST_PERMISSIONS` | الحروف الإلزامية (`storage`) تُطرح من طلب/سحب الأذونات — لا إعادة إعلام زائدة ولا كسر إعدادات |
+| `src/browser/permissions.ts` | جسر `chrome.permissions` (request/remove/getAll/contains) يشتق الحروف من `requiredManifestPermissions()`؛ يتدهور بصدق حين لا تتوفر الواجهة |
+| `service-worker` Phase 2 | معالجات `consent/get·grant·revoke`، `permissions/status`، `capture/errors·state` + `CaptureStore` محدود + بوابة `evaluateFeatureAccess` على رسائل المحتوى **قبل** التخزين |
+| `error-capture.ts` | `onAck`: رفض الـ worker (`CONSENT_REQUIRED`) يوقف الالتقاط ذاتيًا — لا جمع بعد الإلغاء |
+| `src/ui/app.tsx` | حوار موافقة موصول فعليًا؛ عرض الأخطاء المجمعة بـ `groupErrors()`؛ حالة `grantsMissing` عندما يسحب المتصفح المنح |
+| `src/ui/options.ts` | صفحة التشخيص: الموافقة + المنح + انحراف الأذونات (`reconcilePermissions`) |
+| `scripts/e2e.mjs` | +3 فحوصات: `scripting` و`<all_urls>` اختيارية، و`permissions == [storage]` بالضبط |
+
 ### غير مبنية ❌
 
-- ربط الموافقة الفعلي: `chrome.permissions.request`، تخزين `ConsentState`، `reconcilePermissions()` في صفحة التشخيص (المرحلة 2)
 - جسر HAR (`chrome.devtools.network.getHAR()`) وعرض الشبكة الحقيقي (المرحلة 3)
-- Debug Assistant — مزودو الذكاء الاصطناعي (المرحلة 3)
+- Debug Assistant — مزودو الذكاء الاصطناعي واستدعاءات المزود (المرحلة 3)
 - Agent Prompt Engine (المرحلة 4)
-- اختبارات مكوّنات React بـ jsdom (واجهة `src/ui` مستثناة من التغطية مؤقتًا)
-
-> `npm run build` و `npm run e2e` يعملان الآن. `npm run verify` كامل (typecheck + lint + test + build) ينجح.
+- اختبارات مكوّنات React بـ jsdom (منطق الواجهة مُختبر عبر وحداتها، والعرض عبر e2e)
 
 ---
 
@@ -100,11 +110,17 @@
 - [ ] `requiredManifestPermissions()` يجب أن يستعمل عند طلب الأذونات الاختيارية في المرحلة 2
   (الـ manifest الحالي يطابق مخرجه للميزات المحلية؛ التحقق الآلي جزء من ربط الموافقة)
 
-### المرحلة 2 — ربط الموافقة
-- [ ] تخزين `ConsentState` في `chrome.storage`
-- [ ] حوار موافقة يعتمد `consentPromptFor()`
-- [ ] بوابة `evaluateFeatureAccess()` عند كل مورد بيانات
-- [ ] `reconcilePermissions()` في صفحة التشخيص لكشف الأذونات المسحوبة
+### المرحلة 2 — ربط الموافقة ✅ مكتملة
+- [x] تخزين `ConsentState` في `chrome.storage.local` (`consent-store.ts`، قراءة fail-closed)
+- [x] حوار موافقة يعتمد `consentPromptFor()` — موصول بالرسائل الفعلية
+- [x] بوابة `evaluateFeatureAccess()` عند كل مورد بيانات — في الـ worker نفسه (رسائل اللوحة ومظاريف المحتوى)
+- [x] `reconcilePermissions()` في صفحة التشخيص لكشف الأذونات المسحوبة
+- [x] جسر أذونات Chrome الاختيارية: `permissions.request` عند التمكين، `permissions.remove` عند الإلغاء
+- [x] `effectiveGrantedPermissions()` + استثناء `aiAnalysis` (منطقية، لا تُستنتج من المنح)
+- [x] تحذير `grantsMissing` في الإعدادات عندما تكون الموافقة قائمة والمنح مسحوبة
+- [x] إنهاء الالتقاط ذاتيًا عند رفض الـ worker (سحب الموافقة أثناء الجلسة)
+
+ملاحظة: طلب الأذونات يبدأ حاليًا من زر "Enable…" في اللوحة (إيماءة مستخدم حقيقية). سير `chrome.permissions.request` من حوار الموافقة نفسه متصل بنفس مسار الرسائل.
 
 ### المرحلة 3 — Debug Assistant
 - [ ] جسر `chrome.devtools.network.getHAR()` ← `CapturedRequest[]`
@@ -131,10 +147,10 @@
 cd kingdev
 npm run typecheck     # tsc --noEmit — نظيف
 npm run lint          # biome check — 0 أخطاء (تحذيرا fingerprint.ts المعروفان فقط)
-npm test              # 257 اختبارًا
-npm run test:coverage # 96.15% — يفرض 90/85/80/90 وينجح
+npm test              # 306 اختبارًا (257 أساسية + 49 من المرحلة 2)
+npm run test:coverage # 96.19% — يفرض 90/85/80/90 وينجح
 npm run build         # dist/ جاهزة للتحميل من chrome://extensions
-npm run e2e           # 27 فحصًا على الحزمة المبنية — ينجح
+npm run e2e           # 30 فحصًا على الحزمة المبنية — ينجح
 npm run verify        # كل ما سبق — ينجح
 ```
 
@@ -147,6 +163,8 @@ npm run verify        # كل ما سبق — ينجح
 2. تحذيران غير مؤثرين: `noExcessiveCognitiveComplexity` في `fingerprint.ts:174` و `:304`.
 3. لم يُنشأ أي commit حتى الآن — التاريخ غير محفوظ.
 4. أيقونات `icons/*.png` شمعونة (1×1 شفاف) — تحتاج شعارًا حقيقيًا قبل النشر.
-5. `src/ui/**` مستثناة من عتبات التغطية مؤقتًا؛ اختبارات jsdom للمكونات جزء من المرحلة 2.
-6. `content/error-capture.ts` يرسل إلى الـ service worker لكن التخزين المركزي للأخطاء
-   المُجمّعة (وبالتالي عرضها في تبويب Issues) يُبنى في المرحلة 2 مع بوابة الموافقة.
+5. `src/ui/**` مستثناة من عتبات التغطية مؤقتًا؛ منطق الواجهة مُختبر عبر `rpc.ts` ووحدات `security/`، والعرض عبر e2e.
+6. طلب الأذونات الاختيارية يتم من اللوحة بزر Enable (إيماءة مستخدم). تدفّق تجربة الاعتماد
+   الكامل (فتح اللوحة → حوار → منح) يحتاج اختبار متصفح فعلي في المرحلة 5.
+7. `CaptureStore` يُبقي الأخطاء في ذاكرة الـ worker (`session`-like): المزامنة عبر
+   إعادة تشغيل الـ worker تتم عند القراءة من اللوحة، والتخزين الدائم للجلسات في `chrome.storage.local` فقط.

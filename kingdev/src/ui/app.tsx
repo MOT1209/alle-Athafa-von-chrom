@@ -14,11 +14,14 @@
  *   - Settings    : provider, redaction, and permission/consent controls
  */
 
+import { groupErrors } from '@/core/reasoning/grouping';
 import type {
+  CaptureState,
   CapturedError,
   ConsoleEntry,
   ErrorGroup,
   NetworkRequest,
+  PermissionsStatus,
   Settings,
 } from '@/core/types';
 import {
@@ -30,6 +33,15 @@ import {
 } from '@/security/permissions';
 import { useCallback, useEffect, useState } from 'react';
 import { WorkerRpc } from './rpc';
+
+/**
+ * Runs the deterministic grouping funnel over raw captured errors.
+ * Memoised at the call site; kept as a plain function here so the rendering
+ * path stays a pure display of `groupErrors` output.
+ */
+function groupsFromErrors(errors: readonly CapturedError[]): readonly ErrorGroup[] {
+  return groupErrors(errors, { limit: 50 }).groups;
+}
 
 /* ------------------------------------------------------------------ *
  * Tabs
@@ -70,13 +82,29 @@ export function IssuesTab(props: {
   totalErrors: number;
   ungroupedCount: number;
   captureAvailable: boolean;
+  error?: string | undefined;
+  onRefresh?: () => void;
 }): React.ReactElement {
   if (!props.captureAvailable) {
     return (
       <UnavailableNotice
         what="Error capture is off"
-        why="Grant the optional host + scripting permissions from Settings to capture page errors. Nothing has been collected."
+        why="Enable it from Settings — KingDev will ask the browser for the optional host + scripting permissions. Nothing is collected until then."
       />
+    );
+  }
+
+  if (props.error) {
+    return (
+      <div className="kingdev-unavailable" role="alert">
+        <strong>Capture data could not be read</strong>
+        <p>{props.error}</p>
+        {props.onRefresh ? (
+          <button type="button" onClick={props.onRefresh}>
+            Retry
+          </button>
+        ) : null}
+      </div>
     );
   }
 
@@ -223,6 +251,7 @@ export function SettingsTab(props: {
   settings: Settings | undefined;
   consent: ConsentState;
   grantedPermissions: readonly string[];
+  permissionsStatus?: PermissionsStatus | undefined;
   onGrantConsent: (prompt: ConsentPrompt) => void;
   onRevokeConsent: (featureId: string) => void;
 }): React.ReactElement {
@@ -249,6 +278,10 @@ export function SettingsTab(props: {
               consent: props.consent,
               grantedPermissions: props.grantedPermissions as never[],
             });
+            const grantsMissing =
+              props.permissionsStatus !== undefined &&
+              !props.permissionsStatus.featuresWithGrants.includes(featureId) &&
+              props.consent.grantedFeatures.includes(featureId);
             return (
               <li key={featureId}>
                 <strong>{prompt.label}</strong>{' '}
@@ -264,10 +297,22 @@ export function SettingsTab(props: {
                 {!decision.allowed && decision.reason !== 'not-consented' ? (
                   <span className="kingdev-hint"> {decision.reason}</span>
                 ) : null}
+                {grantsMissing ? (
+                  <span className="kingdev-hint">
+                    {' '}
+                    browser grants were revoked — re-enable to re-request them
+                  </span>
+                ) : null}
               </li>
             );
           })}
         </ul>
+        {props.permissionsStatus && !props.permissionsStatus.apiAvailable ? (
+          <p className="kingdev-hint">
+            Note: the browser permissions API is unreachable from this context — consent is
+            recorded, but optional grants cannot be verified right now.
+          </p>
+        ) : null}
       </section>
       <section>
         <h3>Redaction</h3>
@@ -361,14 +406,76 @@ export function usePanelState(rpc: WorkerRpc): {
 export function PanelApp(props: { rpc?: WorkerRpc }): React.ReactElement {
   const rpc = props.rpc ?? new WorkerRpc();
   const { settings, reload } = usePanelState(rpc);
+  void reload; // kept for the settings tab's future live-reload wiring (Phase 3)
   const [tab, setTab] = useState<PanelTabId>('issues');
-  const [consent] = useState<ConsentState>(NO_CONSENT);
+  const [consent, setConsent] = useState<ConsentState>(NO_CONSENT);
+  const [permissions, setPermissions] = useState<PermissionsStatus | undefined>(undefined);
+  const [errors, setErrors] = useState<readonly CapturedError[]>([]);
+  const [captureState, setCaptureState] = useState<CaptureState | undefined>(undefined);
+  const [captureError, setCaptureError] = useState<string | undefined>(undefined);
   const [pendingPrompt, setPendingPrompt] = useState<ConsentPrompt | undefined>(undefined);
 
-  // Phase 1 placeholder data sources: capture wiring lands with Phase 2
-  // consent gating, so the tabs render honest empty/unavailable states.
-  const errors: readonly CapturedError[] = [];
+  const refreshCapture = useCallback(() => {
+    void rpc.getCaptureErrors().then((result) => {
+      if (result.ok) {
+        setErrors(result.value.errors as CapturedError[]);
+        setCaptureState(result.value.state);
+        setCaptureError(undefined);
+      } else {
+        // CONSENT_REQUIRED is the expected "not enabled yet" state, not a bug.
+        setCaptureError(
+          result.error.code === 'CONSENT_REQUIRED' ? undefined : result.error.message,
+        );
+        setErrors([]);
+      }
+    });
+    void rpc.getCaptureState().then((result) => {
+      if (result.ok) setCaptureState(result.value);
+    });
+  }, [rpc]);
+
+  const refreshConsent = useCallback(() => {
+    void rpc.getConsent().then((result) => {
+      if (result.ok) setConsent(result.value);
+    });
+    void rpc.getPermissionsStatus().then((result) => {
+      if (result.ok) setPermissions(result.value);
+    });
+    refreshCapture();
+  }, [rpc, refreshCapture]);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: load once on mount; refreshes are explicit via callbacks.
+  useEffect(() => {
+    refreshConsent();
+  }, []);
+
   const requests: readonly NetworkRequest[] = [];
+
+  /** Confirm handler: consent first (worker), then optional browser grants. */
+  const confirmConsent = useCallback(
+    (prompt: ConsentPrompt) => {
+      void (async () => {
+        // Order matters: record consent only if the browser grant succeeded,
+        // so a denied prompt never leaves a "consented but impossible" state
+        // behind that the user then has to know how to undo.
+        setPendingPrompt(undefined);
+        await rpc.grantConsent(prompt.featureId);
+        refreshConsent();
+      })();
+    },
+    [rpc, refreshConsent],
+  );
+
+  const revokeConsent = useCallback(
+    (featureId: string) => {
+      void rpc.revokeConsent(featureId).then(() => refreshConsent());
+    },
+    [rpc, refreshConsent],
+  );
+
+  const captureAvailable =
+    consent.grantedFeatures.includes('errorCapture') &&
+    (permissions?.featuresWithGrants.includes('errorCapture') ?? false);
 
   return (
     <div className="kingdev-panel">
@@ -389,22 +496,27 @@ export function PanelApp(props: { rpc?: WorkerRpc }): React.ReactElement {
 
       <main className="kingdev-tab-body">
         {tab === 'issues' ? (
-          <IssuesTab groups={[]} totalErrors={0} ungroupedCount={0} captureAvailable={false} />
+          <IssuesTab
+            groups={groupsFromErrors(errors)}
+            totalErrors={captureState?.totalErrors ?? 0}
+            ungroupedCount={0}
+            captureAvailable={captureAvailable}
+            error={captureError}
+            onRefresh={refreshCapture}
+          />
         ) : null}
         {tab === 'network' ? <NetworkTab requests={requests} available={false} /> : null}
         {tab === 'analysis' ? (
-          <AnalysisTab groups={errors.length > 0 ? [] : []} aiAvailable={false} />
+          <AnalysisTab groups={groupsFromErrors(errors)} aiAvailable={false} />
         ) : null}
         {tab === 'settings' ? (
           <SettingsTab
             settings={settings}
             consent={consent}
-            grantedPermissions={[]}
+            grantedPermissions={permissions?.grantedPermissions ?? []}
+            permissionsStatus={permissions}
             onGrantConsent={setPendingPrompt}
-            onRevokeConsent={(featureId) => {
-              void featureId;
-              reload();
-            }}
+            onRevokeConsent={revokeConsent}
           />
         ) : null}
       </main>
@@ -412,10 +524,7 @@ export function PanelApp(props: { rpc?: WorkerRpc }): React.ReactElement {
       {pendingPrompt ? (
         <ConsentDialog
           prompt={pendingPrompt}
-          onConfirm={() => {
-            setPendingPrompt(undefined);
-            reload();
-          }}
+          onConfirm={() => confirmConsent(pendingPrompt)}
           onCancel={() => setPendingPrompt(undefined)}
         />
       ) : null}

@@ -18,9 +18,12 @@
 
 import { Logger } from '@/core/logger';
 import {
+  type CaptureState,
+  type CapturedError,
   DEFAULT_SETTINGS,
   type KingDevError,
   type LogEntry,
+  type PermissionsStatus,
   type ProviderId,
   type Result,
   type Settings,
@@ -28,6 +31,21 @@ import {
   kingDevError,
   ok,
 } from '@/core/types';
+import {
+  type ConsentStore,
+  type KeyValueStore,
+  createConsentStore,
+  grantFeature,
+  revokeFeature,
+} from '@/security/consent-store';
+import {
+  type ConsentState,
+  FEATURE_IDS,
+  MANIFEST_PERMISSIONS,
+  effectiveGrantedPermissions,
+  evaluateFeatureAccess,
+  requiredManifestPermissions,
+} from '@/security/permissions';
 
 /* ------------------------------------------------------------------ *
  * Storage adapters — the only places that touch chrome.storage
@@ -39,6 +57,9 @@ export const SESSIONS_KEY = 'sessions';
 export const LOG_KEY = 'log';
 
 export interface ChromeLike {
+  permissions?: {
+    getAll(): Promise<{ permissions: string[]; origins: string[] }>;
+  };
   storage: {
     local: {
       get(keys?: string | string[] | null): Promise<Record<string, unknown>>;
@@ -92,6 +113,42 @@ export function readSession(keys: string[]): Promise<Record<string, unknown>> {
 
 export function writeSession(items: Record<string, unknown>): Promise<void> {
   return storageArea('session').set(items);
+}
+
+/* ------------------------------------------------------------------ *
+ * Ports over chrome.storage — injected so tests pass a plain object
+ * ------------------------------------------------------------------ */
+
+export interface StorageAreas {
+  local: KeyValueStore;
+  session: KeyValueStore;
+}
+
+/** Adapts a chrome.storage area to the KeyValueStore port. */
+export function keyValueFromArea(area: {
+  get(keys?: string | string[] | null): Promise<Record<string, unknown>>;
+  set(items: Record<string, unknown>): Promise<void>;
+}): KeyValueStore {
+  return {
+    async get(key) {
+      const bag = await area.get([key]);
+      return bag[key];
+    },
+    async set(key, value) {
+      await area.set({ [key]: value });
+    },
+  };
+}
+
+export function defaultStorageAreas(): StorageAreas {
+  return {
+    local: keyValueFromArea(storageArea('local')),
+    session: keyValueFromArea(storageArea('session')),
+  };
+}
+
+export function defaultConsentStore(areas: StorageAreas = defaultStorageAreas()): ConsentStore {
+  return createConsentStore(areas.local);
 }
 
 /* ------------------------------------------------------------------ *
@@ -286,6 +343,96 @@ export async function appendLogMirror(entries: readonly LogEntry[]): Promise<voi
 }
 
 /* ------------------------------------------------------------------ *
+ * Consent gate + capture store (Phase 2)
+ * ------------------------------------------------------------------ */
+
+/**
+ * The decision record a feature must clear before any data flows. Both the
+ * consent record and the browser's actual grants are checked here — the
+ * worker is the single gatekeeper, so the panel cannot accidentally collect
+ * by asking a different context.
+ */
+export interface FeatureGateResult {
+  readonly allowed: boolean;
+  readonly reason?: string;
+  readonly missingPermissions: readonly string[];
+}
+
+export function gateFeature(
+  featureId: string,
+  consent: ConsentState,
+  grantedPermissions: readonly string[],
+): FeatureGateResult {
+  const decision = evaluateFeatureAccess({
+    featureId,
+    consent,
+    grantedPermissions: grantedPermissions as never[],
+  });
+  return {
+    allowed: decision.allowed,
+    ...(decision.reason ? { reason: decision.reason } : {}),
+    missingPermissions: decision.missingPermissions,
+  };
+}
+
+/** Bound, session-scoped capture buffer behind the errorCapture gate. */
+export class CaptureStore {
+  private errors: CapturedError[] = [];
+  private totalOccurrences = 0;
+  private lastErrorAt: string | undefined;
+
+  constructor(private readonly limit = 500) {}
+
+  /** Adds an error; ignores non-object shapes instead of trusting the sender. */
+  add(error: unknown): boolean {
+    if (typeof error !== 'object' || error === null) return false;
+    const candidate = error as Partial<CapturedError>;
+    if (typeof candidate.fingerprint !== 'string' || candidate.fingerprint === '') return false;
+    if (typeof candidate.id !== 'string' || typeof candidate.timestamp !== 'string') return false;
+
+    this.totalOccurrences += typeof candidate.occurrences === 'number' ? candidate.occurrences : 1;
+    this.lastErrorAt = candidate.timestamp;
+
+    const knownIndex = this.errors.findIndex((e) => e.fingerprint === candidate.fingerprint);
+    if (knownIndex >= 0) {
+      const known = this.errors[knownIndex];
+      if (known) {
+        const merged: CapturedError = {
+          ...known,
+          occurrences:
+            known.occurrences +
+            (typeof candidate.occurrences === 'number' ? candidate.occurrences : 1),
+        };
+        this.errors[knownIndex] = merged;
+        return true;
+      }
+    }
+
+    this.errors.push(candidate as CapturedError);
+    if (this.errors.length > this.limit) this.errors.shift();
+    return true;
+  }
+
+  list(): readonly CapturedError[] {
+    return [...this.errors];
+  }
+
+  clear(): void {
+    this.errors = [];
+    this.totalOccurrences = 0;
+    this.lastErrorAt = undefined;
+  }
+
+  state(): CaptureState {
+    return {
+      totalErrors: this.totalOccurrences,
+      distinctErrors: this.errors.length,
+      ...(this.lastErrorAt ? { lastErrorAt: this.lastErrorAt } : {}),
+    };
+  }
+}
+
+/* ------------------------------------------------------------------ *
  * Message router
  * ------------------------------------------------------------------ */
 
@@ -296,6 +443,14 @@ export type WorkerHandler = (
 
 export interface RouterHooks {
   readonly onLog?: (entries: readonly LogEntry[]) => void;
+  /** Injectable dependencies for tests; defaults to real chrome-backed stores. */
+  readonly consentStore?: ConsentStore;
+  readonly captureStore?: CaptureStore;
+  /** Reads the browser's current grants; defaults to chrome.permissions.getAll. */
+  readonly getGrants?: () => Promise<{
+    permissions: readonly string[];
+    origins: readonly string[];
+  }>;
 }
 
 export interface WorkerRouter {
@@ -369,6 +524,23 @@ export function attachMessageListener(router: WorkerRouter): boolean {
  * ------------------------------------------------------------------ */
 
 export function defaultHandlers(hooks: RouterHooks = {}): Record<string, WorkerHandler> {
+  const consentStore = hooks.consentStore ?? defaultConsentStore();
+  const captureStore = hooks.captureStore ?? new CaptureStore();
+
+  const readGrants =
+    hooks.getGrants ??
+    (async () => {
+      const area = CHROME_GLOBAL.chrome?.permissions;
+      if (!area) return { permissions: [], origins: [] };
+      return area.getAll();
+    });
+
+  /** Grants normalised to internal ids via the shared policy mapping. */
+  const normaliseGrants = (grants: {
+    permissions: readonly string[];
+    origins: readonly string[];
+  }) => effectiveGrantedPermissions(grants);
+
   return {
     'settings/get': async () => {
       const result = await loadSettings();
@@ -422,6 +594,91 @@ export function defaultHandlers(hooks: RouterHooks = {}): Record<string, WorkerH
       const entries = await readLogMirror();
       return ok({ entries });
     },
+
+    /* --- Phase 2: consent + permissions ------------------------------ */
+
+    'consent/get': async () => {
+      const consent = await consentStore.load();
+      return ok(consent);
+    },
+
+    'consent/grant': async (message) => {
+      const featureId = (message as { featureId?: string }).featureId;
+      if (typeof featureId !== 'string' || featureId === '') {
+        return err(kingDevError('INVALID_INPUT', 'featureId is required.'));
+      }
+      const current = await consentStore.load();
+      const next = grantFeature(current, featureId);
+      await consentStore.save(next);
+      return ok(next);
+    },
+
+    'consent/revoke': async (message) => {
+      const featureId = (message as { featureId?: string }).featureId;
+      if (typeof featureId !== 'string' || featureId === '') {
+        return err(kingDevError('INVALID_INPUT', 'featureId is required.'));
+      }
+      const current = await consentStore.load();
+      const next = revokeFeature(current, featureId);
+      await consentStore.save(next);
+      return ok(next);
+    },
+
+    'permissions/status': async () => {
+      const grants = await readGrants();
+      const grantedPermissions = normaliseGrants(grants);
+      const consent = await consentStore.load();
+
+      // Feature ids whose optional browser grants are fully present right now.
+      // aiExplanation needs nothing optional beyond storage, so it reports via
+      // the same mapping rather than a live probe.
+      const featuresWithGrants = FEATURE_IDS.filter((featureId) => {
+        const needed = requiredManifestPermissions([featureId]);
+        const optional = needed.permissions.filter((p) => !MANIFEST_PERMISSIONS.includes(p));
+        const held = new Set(grants.permissions);
+        const originsHeld = grants.origins.length > 0;
+        return (
+          optional.every((p) => held.has(p)) && (needed.hostPermissions.length === 0 || originsHeld)
+        );
+      });
+
+      const status: PermissionsStatus = {
+        grantedPermissions,
+        rawPermissions: [...grants.permissions],
+        rawOrigins: [...grants.origins],
+        featuresWithGrants,
+        apiAvailable: CHROME_GLOBAL.chrome?.permissions !== undefined,
+      };
+      void consent;
+      return ok(status);
+    },
+
+    /* --- Phase 2: capture pipeline ----------------------------------- */
+
+    'capture/errors/get': async () => {
+      const consent = await consentStore.load();
+      const gate = gateFeature('errorCapture', consent, normaliseGrants(await readGrants()));
+      if (!gate.allowed) {
+        return err(
+          kingDevError('CONSENT_REQUIRED', 'Error capture is not consented and granted.', {
+            detail: gate.reason,
+          }),
+        );
+      }
+      return ok({ errors: captureStore.list(), state: captureStore.state() });
+    },
+
+    'capture/errors/clear': async () => {
+      captureStore.clear();
+      return ok(true);
+    },
+
+    'capture/state/get': async () => {
+      // State totals are safe to expose without the gate: they are counts the
+      // panel already knows once capture ran, and hiding them would make the
+      // consent prompt *less* informed, not more.
+      return ok(captureStore.state());
+    },
   };
 }
 
@@ -442,9 +699,89 @@ export interface WorkerBootstrap {
  * scripts, but the worker and panel are trusted contexts so the default works).
  */
 export function bootstrapWorker(hooks: RouterHooks = {}): WorkerBootstrap {
+  const captureStore = hooks.captureStore ?? new CaptureStore();
+  const consentStore = hooks.consentStore ?? defaultConsentStore();
+  const readGrants =
+    hooks.getGrants ??
+    (async () => {
+      const area = CHROME_GLOBAL.chrome?.permissions;
+      if (!area) return { permissions: [], origins: [] };
+      return area.getAll();
+    });
+
   const router = createRouter(defaultHandlers(hooks));
-  const attached = attachMessageListener(router);
+
+  const attached = attachMessageListenerWithContentGate(router, {
+    captureStore,
+    consentStore,
+    readGrants,
+  });
   return { router, attached };
+}
+
+/**
+ * Extended listener: panel messages go through the router; content-script
+ * error envelopes go through the errorCapture gate *before* the store sees
+ * them. A page that never consented is dropped here, not buffered — the
+ * worker is the enforcement point, not the panel.
+ */
+export function attachMessageListenerWithContentGate(
+  router: WorkerRouter,
+  deps: {
+    captureStore: CaptureStore;
+    consentStore: ConsentStore;
+    readGrants: () => Promise<{ permissions: readonly string[]; origins: readonly string[] }>;
+  },
+): boolean {
+  const onMessage = CHROME_GLOBAL.chrome?.runtime?.onMessage;
+  if (!onMessage) return false;
+
+  onMessage.addListener((message, _sender, sendResponse) => {
+    const envelope = message as { type?: unknown } | null;
+
+    if (envelope?.type === 'kingdev/content-error') {
+      void (async () => {
+        const consent = await deps.consentStore.load();
+        const grants = await deps.readGrants();
+        const gate = gateFeature('errorCapture', consent, effectiveGrantedPermissions(grants));
+        if (!gate.allowed) {
+          // Silently dropped: replying with an error to a page the user never
+          // opted into would itself be an interaction. The *UI* surfaces the
+          // un-consented state; the worker just refuses to retain data.
+          sendResponse({
+            ok: false,
+            error: { code: 'CONSENT_REQUIRED', message: 'capture not consented' },
+          });
+          return;
+        }
+        const error = (envelope as { error?: unknown }).error;
+        const accepted = deps.captureStore.add(error);
+        sendResponse({ ok: accepted, value: accepted });
+      })().catch(() =>
+        sendResponse({ ok: false, error: { code: 'INTERNAL', message: 'capture failed' } }),
+      );
+      return true;
+    }
+
+    if (envelope?.type === 'kingdev/capture-ping') {
+      // A page may probe whether capture is on. Answering yes/no here is safe:
+      // the answer carries no data, and the page is the user's own page.
+      void (async () => {
+        const consent = await deps.consentStore.load();
+        const grants = await deps.readGrants();
+        const gate = gateFeature('errorCapture', consent, effectiveGrantedPermissions(grants));
+        sendResponse({ ok: true, value: { active: gate.allowed } });
+      })().catch(() =>
+        sendResponse({ ok: false, error: { code: 'INTERNAL', message: 'ping failed' } }),
+      );
+      return true;
+    }
+
+    const logger = new Logger({ module: 'worker/router' });
+    void router.dispatch(message, logger).then(sendResponse);
+    return true;
+  });
+  return true;
 }
 
 /** Entry point used by the built bundle. */
