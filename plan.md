@@ -3,8 +3,8 @@
 هذا المستودع سيجمع **كل الإضافات**، ولكل إضافة مجلد مستقل قائم بذاته.
 الإضافة الحالية: `kingdev/`.
 
-> آخر تحديث: اكتملت المرحلة 2 — ربط الموافقة كاملًا (306 اختبارًا، تغطية 96.19%، `npm run verify` + `npm run e2e` ينجحان).
-> المرحلة 1 مكتملة أيضًا: أذونات دنيا + اختيارية · موافقة لكل ميزة · تبويبات.
+> آخر تحديث: اكتملت المرحلة 3 — Debug Assistant (352 اختبارًا، تغطية 96.46%، `npm run verify` + `npm run e2e` ينجحان).
+> المرحلتان 1 و2 مكتملتان: أذونات دنيا + اختيارية · موافقة لكل ميزة · تبويبات · ربط الموافقة.
 
 ---
 
@@ -53,12 +53,24 @@
 | `src/ui/options.ts` | صفحة التشخيص: الموافقة + المنح + انحراف الأذونات (`reconcilePermissions`) |
 | `scripts/e2e.mjs` | +3 فحوصات: `scripting` و`<all_urls>` اختيارية، و`permissions == [storage]` بالضبط |
 
+### مبنية في المرحلة 3 ✅
+
+| الوحدة | الدور |
+|---|---|
+| `src/core/network/har-convert.ts` | تحويل HAR ← `NetworkRequest[]`: outcome مشتق من الأدلة (cached/redirect/4xx/5xx/failed)، أسماء headers فقط بلا قيم، الإدخالات التالفة تُسقط لا تُصلح |
+| `src/browser/devtools/har-bridge.ts` | جسر `chrome.devtools.network`: لقطة `getHAR` بمهلة + بث `onRequestFinished` + `isHarAvailable()` صادقة تُعرض كما هي في الواجهة |
+| `src/core/providers/catalog.ts` | كتالوج المزودين الستة (openai/anthropic/google/openrouter/ollama/custom) + نماذج مقترحة — بيانات لا مسارات كود |
+| `src/core/providers/client.ts` | `complete()` موحّد عبر أربعة بروتوكولات سلكية؛ خريطة أخطاء ثابتة (401→AUTH، 429→RATE_LIMIT، 5xx→BAD_RESPONSE retryable، fetch→NETWORK)؛ المهلة عبر AbortController؛ المفتاح يُحل عبر `KeyResolver` محقون |
+| `src/core/providers/key-vault.ts` | خزنة المفاتيح: القراءة الوحيدة الممكنة من الواجهة = **وجود** المفتاح لا قيمته؛ الإخفاق يُقرأ "لا مفاتيح" (fail-closed)؛ فحص هيكلي رخيص قبل الشبكة |
+| `src/core/reasoning/issue.ts` | `ErrorGroup` ← `IssueView`: عرض صريح `needsModel` عندما لا قاعدة تطابقت، و`discriminatingTest` يُمرر حرفيًا كما كتبته القاعدة |
+| الواجهة | NetworkTab ببيانات حقيقية (لقطة + بث حي)، قسم Providers في Settings (حفظ/إزالة/تفعيل مفتاح، حقل model id)، AnalysisTab بعرض Issues + قسم "Needs a model" |
+
 ### غير مبنية ❌
 
-- جسر HAR (`chrome.devtools.network.getHAR()`) وعرض الشبكة الحقيقي (المرحلة 3)
-- Debug Assistant — مزودو الذكاء الاصطناعي واستدعاءات المزود (المرحلة 3)
-- Agent Prompt Engine (المرحلة 4)
-- اختبارات مكوّنات React بـ jsdom (منطق الواجهة مُختبر عبر وحداتها، والعرض عبر e2e)
+- بناء الـ prompt من الأدلة الحتمية وحقن نتيجة `groupErrors` (المرحلة 4 — Agent Prompt Engine)
+- استدعاء المزود من اللوحة لتحليل الـ issues (البنية جاهزة: `complete()` + المفاتيح + الموافقة `aiExplanation` — يتبقى ربط زر التحليل بالـ prompt في المرحلة 4)
+- منع النموذج من تجاوز الدليل الحتمي (المرحلة 4)
+- `npm run verify` كامل يشمل بوابة الإصدار الأمنية (المرحلة 5)
 
 ---
 
@@ -122,11 +134,16 @@
 
 ملاحظة: طلب الأذونات يبدأ حاليًا من زر "Enable…" في اللوحة (إيماءة مستخدم حقيقية). سير `chrome.permissions.request` من حوار الموافقة نفسه متصل بنفس مسار الرسائل.
 
-### المرحلة 3 — Debug Assistant
-- [ ] جسر `chrome.devtools.network.getHAR()` ← `CapturedRequest[]`
-- [ ] تحويل الأخطاء المجمّعة إلى `Issue` مرئية
-- [ ] عرض `discriminatingTest` لكل نتيجة
-- [ ] اختيار المزود + إدارة المفاتيح عبر `storage`
+### المرحلة 3 — Debug Assistant ✅ مكتملة
+- [x] جسر `chrome.devtools.network.getHAR()` ← `NetworkRequest[]` (`har-convert.ts` + `har-bridge.ts`)
+- [x] تحويل الأخطاء المجمّعة إلى `Issue` مرئية (`toIssueViews()`، منفصل قابل للاختبار)
+- [x] عرض `discriminatingTest` لكل نتيجة — حرفيًا من القاعدة، في Issues وAnalysis
+- [x] اختيار المزود + إدارة المفاتيح عبر `storage` (`key-vault.ts` + قسم Providers)
+- [x] عميل موحّد للبروتوكولات الأربعة بأخطاء مُنمّطة (`client.ts`)
+
+ملاحظة معمارية: `complete()` يستهدف الآن مكتبة وحدة (unit-callable) وليس رسالة worker —
+اللوحة تملك استدعاءات المزود (قرار معماري محسوم). ربط زر التحليل في AnalysisTab
+بالـ prompt سيأتي في المرحلة 4 بعد بناء محرك الـ prompt.
 
 ### المرحلة 4 — Agent Prompt Engine
 - [ ] بناء الـ prompt من الأدلة الحتمية (لا من نص حر)
@@ -147,8 +164,8 @@
 cd kingdev
 npm run typecheck     # tsc --noEmit — نظيف
 npm run lint          # biome check — 0 أخطاء (تحذيرا fingerprint.ts المعروفان فقط)
-npm test              # 306 اختبارًا (257 أساسية + 49 من المرحلة 2)
-npm run test:coverage # 96.19% — يفرض 90/85/80/90 وينجح
+npm test              # 352 اختبارًا (306 سابقة + 46 من المرحلة 3)
+npm run test:coverage # 96.46% — يفرض 90/85/80/90 وينجح
 npm run build         # dist/ جاهزة للتحميل من chrome://extensions
 npm run e2e           # 30 فحصًا على الحزمة المبنية — ينجح
 npm run verify        # كل ما سبق — ينجح
@@ -168,3 +185,7 @@ npm run verify        # كل ما سبق — ينجح
    الكامل (فتح اللوحة → حوار → منح) يحتاج اختبار متصفح فعلي في المرحلة 5.
 7. `CaptureStore` يُبقي الأخطاء في ذاكرة الـ worker (`session`-like): المزامنة عبر
    إعادة تشغيل الـ worker تتم عند القراءة من اللوحة، والتخزين الدائم للجلسات في `chrome.storage.local` فقط.
+8. استدعاءات المزود الفعلية (زر التحليل) تُربط في المرحلة 4 بعد محرك الـ prompt؛
+   `complete()` و`KeyVault` و`aiExplanation` consent جاهزة لها.
+9. أسماء الموديلات في `SUGGESTED_MODELS` قائمة اقتراحات تتقادم مع دورة نشر المزودين؛
+   حقل model id حر في الإعدادات دائمًا.

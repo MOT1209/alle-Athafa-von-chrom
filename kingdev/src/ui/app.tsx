@@ -14,7 +14,10 @@
  *   - Settings    : provider, redaction, and permission/consent controls
  */
 
+import { getRequests, isHarAvailable, onRequestCompleted } from '@/browser/devtools/har-bridge';
+import { PROVIDERS } from '@/core/providers/catalog';
 import { groupErrors } from '@/core/reasoning/grouping';
+import { toIssueViews } from '@/core/reasoning/issue';
 import type {
   CaptureState,
   CapturedError,
@@ -162,37 +165,72 @@ export function IssuesTab(props: {
 export function NetworkTab(props: {
   requests: readonly NetworkRequest[];
   available: boolean;
+  unavailableReason?: string;
+  onRefresh?: () => void;
 }): React.ReactElement {
   if (!props.available) {
     return (
       <UnavailableNotice
-        what="Network capture is unavailable"
-        why="Requests are read from the DevTools network stack of the inspected page. This build has not wired the HAR bridge yet (plan Phase 3)."
+        what="Network capture is unavailable here"
+        why={
+          props.unavailableReason ??
+          'Requests are read from the DevTools network stack, which only the panel context can reach.'
+        }
       />
     );
   }
 
+  if (props.requests.length === 0) {
+    return (
+      <div className="kingdev-empty">
+        No requests observed yet. Reload the page or interact with it — completed requests appear
+        here live.
+        {props.onRefresh ? (
+          <p>
+            <button type="button" onClick={props.onRefresh}>
+              Refresh
+            </button>
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
-    <table className="kingdev-net-table">
-      <thead>
-        <tr>
-          <th>Status</th>
-          <th>Method</th>
-          <th>URL</th>
-          <th>Time</th>
-        </tr>
-      </thead>
-      <tbody>
-        {props.requests.map((request) => (
-          <tr key={request.id}>
-            <td>{request.statusCode ?? request.outcome}</td>
-            <td>{request.method}</td>
-            <td>{request.url}</td>
-            <td>{request.durationMs !== undefined ? `${request.durationMs} ms` : '—'}</td>
+    <div>
+      {props.onRefresh ? (
+        <p>
+          <button type="button" onClick={props.onRefresh}>
+            Refresh ({props.requests.length} requests)
+          </button>
+        </p>
+      ) : null}
+      <table className="kingdev-net-table">
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>Method</th>
+            <th>URL</th>
+            <th>Type</th>
+            <th>Time</th>
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {props.requests.map((request) => (
+            <tr key={request.id}>
+              <td>
+                {request.statusCode ?? request.outcome}
+                {request.fromCache ? ' (cached)' : ''}
+              </td>
+              <td>{request.method}</td>
+              <td>{request.url}</td>
+              <td>{request.resourceType ?? request.mimeType ?? '—'}</td>
+              <td>{request.durationMs !== undefined ? `${request.durationMs} ms` : '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -203,39 +241,73 @@ export function NetworkTab(props: {
 export function AnalysisTab(props: {
   groups: readonly ErrorGroup[];
   aiAvailable: boolean;
+  aiConfigured?: boolean;
 }): React.ReactElement {
-  const deterministic = props.groups.filter((g) => g.rootCause.ruleIds.length > 0);
+  const issues = toIssueViews(props.groups);
+  const deterministic = issues.filter((issue) => !issue.needsModel);
+  const needingModel = issues.filter((issue) => issue.needsModel);
 
   return (
     <div className="kingdev-analysis">
       <section>
-        <h3>Deterministic analysis</h3>
+        <h3>Deterministic analysis ({deterministic.length})</h3>
         {deterministic.length === 0 ? (
           <p className="kingdev-empty">No rule-based root cause matched the captured errors yet.</p>
         ) : (
-          <ul>
-            {deterministic.map((group) => (
-              <li key={group.id}>
-                <strong>{group.rootCause.category}</strong> — {group.rootCause.statement}
-                {group.rootCause.ruleIds.length > 0 ? (
-                  <span className="kingdev-rules">
-                    {' '}
-                    rules: {group.rootCause.ruleIds.join(', ')}
-                  </span>
+          <ol className="kingdev-issue-list">
+            {deterministic.map((issue) => (
+              <li key={issue.id}>
+                <header>
+                  <SeverityBadge severity={issue.severity} />
+                  <strong>{issue.category}</strong>
+                  <span className="kingdev-rules"> rules: {issue.ruleIds.join(', ')}</span>
+                </header>
+                <p>{issue.statement}</p>
+                {issue.alternatives.length > 0 ? (
+                  <details>
+                    <summary>How to tell alternatives apart</summary>
+                    <ul>
+                      {issue.alternatives.map((alt) => (
+                        <li key={alt.title}>
+                          {alt.title} — <strong>test:</strong> {alt.test}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
                 ) : null}
               </li>
             ))}
-          </ul>
+          </ol>
         )}
       </section>
+      {needingModel.length > 0 ? (
+        <section>
+          <h3>Needs a model ({needingModel.length})</h3>
+          <p className="kingdev-hint">
+            No deterministic rule matched these. They need an AI provider, or a wider evidence
+            source such as a source map.
+          </p>
+          <ul>
+            {needingModel.map((issue) => (
+              <li key={issue.id}>{issue.title}</li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <section>
         <h3>AI analysis</h3>
         {props.aiAvailable ? (
-          <p className="kingdev-empty">Provider calls are implemented in plan Phase 3.</p>
+          <p className="kingdev-empty">
+            Model-backed analysis of these issues starts from Settings → Providers.
+          </p>
         ) : (
           <UnavailableNotice
             what="AI analysis is not enabled"
-            why="Enable the AI feature from Settings after reviewing its consent notice: error data would be sent to the configured provider."
+            why={
+              props.aiConfigured
+                ? 'Enable the AI feature from Settings after reviewing its consent notice: error data would be sent to the configured provider.'
+                : 'Configure a provider (key + model) under Settings → Providers first. Nothing is sent anywhere until then.'
+            }
           />
         )}
       </section>
@@ -254,6 +326,15 @@ export function SettingsTab(props: {
   permissionsStatus?: PermissionsStatus | undefined;
   onGrantConsent: (prompt: ConsentPrompt) => void;
   onRevokeConsent: (featureId: string) => void;
+  /* Phase 3: provider keys */
+  keyPresence?: Readonly<Record<string, boolean>> | undefined;
+  draftKeys?: Readonly<Record<string, string>> | undefined;
+  keyMessage?: string | undefined;
+  onDraftKeyChange?: (providerId: string, value: string) => void;
+  onSaveKey?: (providerId: string) => void;
+  onRemoveKey?: (providerId: string) => void;
+  onSelectProvider?: (providerId: string) => void;
+  onUpdateSettings?: (patch: Partial<Settings>) => void;
 }): React.ReactElement {
   const features = [
     'errorCapture',
@@ -321,13 +402,70 @@ export function SettingsTab(props: {
             type="checkbox"
             checked={props.settings?.redactSecrets ?? true}
             onChange={(event) => {
-              void props.settings;
-              // Wired to settings/update in Phase 2 consent wiring.
-              void event;
+              void props.onUpdateSettings?.({ redactSecrets: event.target.checked });
             }}
           />{' '}
           Mask secrets in captured text (recommended)
         </label>
+      </section>
+      <section>
+        <h3>Providers</h3>
+        <p className="kingdev-hint">
+          Keys are stored only in this browser's local extension storage and never leave the device
+          except to authenticate a request you triggered. The panel only ever sees whether a key
+          exists — never its value.
+        </p>
+        <ul className="kingdev-feature-list">
+          {PROVIDERS.map((provider) => {
+            const configured = props.keyPresence?.[provider.id] ?? false;
+            const active = props.settings?.activeProviderId === provider.id;
+            return (
+              <li key={provider.id}>
+                <strong>{provider.displayName}</strong>
+                {provider.local ? ' (local)' : ''} —{' '}
+                {configured ? 'key stored' : provider.keyRequired ? 'no key' : 'no key needed'}
+                {active ? ' · active' : ''}{' '}
+                <input
+                  type="password"
+                  placeholder={provider.keyRequired ? 'Paste API key…' : 'optional'}
+                  value={props.draftKeys?.[provider.id] ?? ''}
+                  onChange={(event) => props.onDraftKeyChange?.(provider.id, event.target.value)}
+                />{' '}
+                <button
+                  type="button"
+                  onClick={() => props.onSaveKey?.(provider.id)}
+                  disabled={(props.draftKeys?.[provider.id] ?? '').trim() === ''}
+                >
+                  Save
+                </button>{' '}
+                <button
+                  type="button"
+                  onClick={() => props.onRemoveKey?.(provider.id)}
+                  disabled={!configured}
+                >
+                  Remove
+                </button>{' '}
+                {!active && configured ? (
+                  <button type="button" onClick={() => props.onSelectProvider?.(provider.id)}>
+                    Use
+                  </button>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+        {props.keyMessage ? <p className="kingdev-hint">{props.keyMessage}</p> : null}
+        {props.settings?.activeProviderId !== undefined ? (
+          <p className="kingdev-hint">
+            Active model:{' '}
+            <input
+              type="text"
+              placeholder="model id (e.g. gpt-4o-mini)"
+              value={props.settings?.activeModelId ?? ''}
+              onChange={(event) => props.onUpdateSettings?.({ activeModelId: event.target.value })}
+            />
+          </p>
+        ) : null}
       </section>
     </div>
   );
@@ -406,7 +544,6 @@ export function usePanelState(rpc: WorkerRpc): {
 export function PanelApp(props: { rpc?: WorkerRpc }): React.ReactElement {
   const rpc = props.rpc ?? new WorkerRpc();
   const { settings, reload } = usePanelState(rpc);
-  void reload; // kept for the settings tab's future live-reload wiring (Phase 3)
   const [tab, setTab] = useState<PanelTabId>('issues');
   const [consent, setConsent] = useState<ConsentState>(NO_CONSENT);
   const [permissions, setPermissions] = useState<PermissionsStatus | undefined>(undefined);
@@ -414,6 +551,43 @@ export function PanelApp(props: { rpc?: WorkerRpc }): React.ReactElement {
   const [captureState, setCaptureState] = useState<CaptureState | undefined>(undefined);
   const [captureError, setCaptureError] = useState<string | undefined>(undefined);
   const [pendingPrompt, setPendingPrompt] = useState<ConsentPrompt | undefined>(undefined);
+
+  /* Phase 3: network (HAR bridge) ------------------------------------ */
+  const harAvailable = isHarAvailable();
+  const [requests, setRequests] = useState<readonly NetworkRequest[]>([]);
+  const [networkReason, setNetworkReason] = useState<string | undefined>(undefined);
+
+  const refreshNetwork = useCallback(() => {
+    void getRequests().then((snapshot) => {
+      setRequests(snapshot.requests);
+      setNetworkReason(snapshot.available ? undefined : snapshot.reason);
+    });
+  }, []);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: subscribe once on mount; refreshNetwork is stable.
+  useEffect(() => {
+    if (!harAvailable) return;
+    refreshNetwork();
+    const live = onRequestCompleted(() => refreshNetwork());
+    return live.unsubscribe;
+  }, []);
+
+  /* Phase 3: provider keys ------------------------------------------- */
+  const [keyPresence, setKeyPresence] = useState<Readonly<Record<string, boolean>> | undefined>(
+    undefined,
+  );
+  const [draftKeys, setDraftKeys] = useState<Readonly<Record<string, string>>>({});
+  const [keyMessage, setKeyMessage] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    let cancelled = false;
+    void rpc.listProviderKeys().then((result) => {
+      if (!cancelled && result.ok) setKeyPresence(result.value);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [rpc]);
 
   const refreshCapture = useCallback(() => {
     void rpc.getCaptureErrors().then((result) => {
@@ -449,8 +623,6 @@ export function PanelApp(props: { rpc?: WorkerRpc }): React.ReactElement {
     refreshConsent();
   }, []);
 
-  const requests: readonly NetworkRequest[] = [];
-
   /** Confirm handler: consent first (worker), then optional browser grants. */
   const confirmConsent = useCallback(
     (prompt: ConsentPrompt) => {
@@ -473,9 +645,64 @@ export function PanelApp(props: { rpc?: WorkerRpc }): React.ReactElement {
     [rpc, refreshConsent],
   );
 
+  const saveKey = useCallback(
+    (providerId: string) => {
+      const draft = (draftKeys[providerId] ?? '').trim();
+      if (draft === '') return;
+      void rpc.setProviderKey(providerId, draft).then((result) => {
+        if (result.ok) {
+          setKeyPresence(result.value);
+          setDraftKeys((current) => ({ ...current, [providerId]: '' }));
+          setKeyMessage(`Key stored for ${providerId}.`);
+        } else {
+          setKeyMessage(`Could not store the key: ${result.error.message}`);
+        }
+      });
+    },
+    [rpc, draftKeys],
+  );
+
+  const removeKey = useCallback(
+    (providerId: string) => {
+      void rpc.setProviderKey(providerId, null).then((result) => {
+        if (result.ok) {
+          setKeyPresence(result.value);
+          setKeyMessage(`Key removed for ${providerId}.`);
+        } else {
+          setKeyMessage(`Could not remove the key: ${result.error.message}`);
+        }
+      });
+    },
+    [rpc],
+  );
+
+  const selectProvider = useCallback(
+    (providerId: string) => {
+      void rpc
+        .updateSettings({ activeProviderId: providerId as Settings['activeProviderId'] })
+        .then((result) => {
+          if (result.ok) reload();
+        });
+    },
+    [rpc, reload],
+  );
+
+  const updateSettings = useCallback(
+    (patch: Partial<Settings>) => {
+      void rpc.updateSettings(patch).then((result) => {
+        if (result.ok) reload();
+      });
+    },
+    [rpc, reload],
+  );
+
   const captureAvailable =
     consent.grantedFeatures.includes('errorCapture') &&
     (permissions?.featuresWithGrants.includes('errorCapture') ?? false);
+  const aiConsented = consent.grantedFeatures.includes('aiExplanation');
+  const activeProviderConfigured =
+    (keyPresence?.[settings?.activeProviderId ?? ''] ?? false) ||
+    settings?.activeProviderId === 'ollama';
 
   return (
     <div className="kingdev-panel">
@@ -505,9 +732,20 @@ export function PanelApp(props: { rpc?: WorkerRpc }): React.ReactElement {
             onRefresh={refreshCapture}
           />
         ) : null}
-        {tab === 'network' ? <NetworkTab requests={requests} available={false} /> : null}
+        {tab === 'network' ? (
+          <NetworkTab
+            requests={requests}
+            available={harAvailable}
+            unavailableReason={networkReason}
+            onRefresh={harAvailable ? refreshNetwork : undefined}
+          />
+        ) : null}
         {tab === 'analysis' ? (
-          <AnalysisTab groups={groupsFromErrors(errors)} aiAvailable={false} />
+          <AnalysisTab
+            groups={groupsFromErrors(errors)}
+            aiAvailable={aiConsented && activeProviderConfigured}
+            aiConfigured={activeProviderConfigured}
+          />
         ) : null}
         {tab === 'settings' ? (
           <SettingsTab
@@ -517,6 +755,16 @@ export function PanelApp(props: { rpc?: WorkerRpc }): React.ReactElement {
             permissionsStatus={permissions}
             onGrantConsent={setPendingPrompt}
             onRevokeConsent={revokeConsent}
+            keyPresence={keyPresence}
+            draftKeys={draftKeys}
+            keyMessage={keyMessage}
+            onDraftKeyChange={(providerId, value) =>
+              setDraftKeys((current) => ({ ...current, [providerId]: value }))
+            }
+            onSaveKey={saveKey}
+            onRemoveKey={removeKey}
+            onSelectProvider={selectProvider}
+            onUpdateSettings={updateSettings}
           />
         ) : null}
       </main>
