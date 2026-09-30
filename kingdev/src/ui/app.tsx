@@ -16,6 +16,11 @@
 
 import { defaultStorageAreas } from '@/background/service-worker';
 import { getRequests, isHarAvailable, onRequestCompleted } from '@/browser/devtools/har-bridge';
+import {
+  permissionsApiAvailable,
+  requestFeaturePermissions,
+  revokeFeaturePermissions,
+} from '@/browser/permissions';
 import { analyzeIssue } from '@/core/analysis/analyzer';
 import type { AnalysisOutcome } from '@/core/analysis/analyzer';
 import { PROVIDERS } from '@/core/providers/catalog';
@@ -434,6 +439,8 @@ export function SettingsTab(props: {
   onRemoveKey?: (providerId: string) => void;
   onSelectProvider?: (providerId: string) => void;
   onUpdateSettings?: (patch: Partial<Settings>) => void;
+  /** Why the last grant/consent attempt did not complete, if any. */
+  consentNotice?: string | undefined;
 }): React.ReactElement {
   const features = [
     'errorCapture',
@@ -449,6 +456,11 @@ export function SettingsTab(props: {
         <p className="kingdev-hint">
           Each feature asks separately. Nothing is enabled until you approve it.
         </p>
+        {props.consentNotice ? (
+          <p className="kingdev-egress-warning" role="alert">
+            {props.consentNotice}
+          </p>
+        ) : null}
         <ul className="kingdev-feature-list">
           {features.map((featureId) => {
             const prompt = consentPromptFor(featureId);
@@ -650,6 +662,7 @@ export function PanelApp(props: { rpc?: WorkerRpc }): React.ReactElement {
   const [captureState, setCaptureState] = useState<CaptureState | undefined>(undefined);
   const [captureError, setCaptureError] = useState<string | undefined>(undefined);
   const [pendingPrompt, setPendingPrompt] = useState<ConsentPrompt | undefined>(undefined);
+  const [consentNotice, setConsentNotice] = useState<string | undefined>(undefined);
 
   /* Phase 3: network (HAR bridge) ------------------------------------ */
   const harAvailable = isHarAvailable();
@@ -722,15 +735,33 @@ export function PanelApp(props: { rpc?: WorkerRpc }): React.ReactElement {
     refreshConsent();
   }, []);
 
-  /** Confirm handler: consent first (worker), then optional browser grants. */
+  /**
+   * Confirm handler: browser grants first (the click that landed here is the
+   * user gesture `chrome.permissions.request` requires), then consent — and
+   * only when the grant succeeded, so a denied prompt never leaves a
+   * "consented but impossible" state behind that the user then has to know
+   * how to undo. Features needing nothing optional record consent directly.
+   */
   const confirmConsent = useCallback(
     (prompt: ConsentPrompt) => {
       void (async () => {
-        // Order matters: record consent only if the browser grant succeeded,
-        // so a denied prompt never leaves a "consented but impossible" state
-        // behind that the user then has to know how to undo.
         setPendingPrompt(undefined);
+        if (!permissionsApiAvailable()) {
+          // No chrome.permissions in this context (tests, plain pages): the
+          // worker gate would fail-closed on the missing grants anyway, so
+          // recording consent here would only produce grantsMissing states.
+          setConsentNotice(
+            'The browser permissions API is unavailable in this context — the feature cannot be enabled here.',
+          );
+          return;
+        }
+        const granted = await requestFeaturePermissions(prompt.featureId);
+        if (!granted) {
+          setConsentNotice(`“${prompt.label}” stays off — the browser permission was denied.`);
+          return;
+        }
         await rpc.grantConsent(prompt.featureId);
+        setConsentNotice(undefined);
         refreshConsent();
       })();
     },
@@ -739,7 +770,13 @@ export function PanelApp(props: { rpc?: WorkerRpc }): React.ReactElement {
 
   const revokeConsent = useCallback(
     (featureId: string) => {
-      void rpc.revokeConsent(featureId).then(() => refreshConsent());
+      void (async () => {
+        // Mirror the grant flow: drop the browser grants too, so a revoked
+        // feature stops holding optional permissions it no longer needs.
+        await revokeFeaturePermissions(featureId);
+        await rpc.revokeConsent(featureId);
+        refreshConsent();
+      })();
     },
     [rpc, refreshConsent],
   );
@@ -938,6 +975,7 @@ export function PanelApp(props: { rpc?: WorkerRpc }): React.ReactElement {
             onRemoveKey={removeKey}
             onSelectProvider={selectProvider}
             onUpdateSettings={updateSettings}
+            consentNotice={consentNotice}
           />
         ) : null}
       </main>

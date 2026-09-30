@@ -158,6 +158,17 @@ describe('chrome permissions bridge', () => {
     await expect(requestFeaturePermissions('errorCapture')).resolves.toBe(false);
   });
 
+  it('requestFeaturePermissions resolves false when the user denies the prompt', async () => {
+    // The deny path is the one the panel's consent flow depends on: consent
+    // must only be recorded after a TRUE resolution, so a denial must read as
+    // false, never as a silent success.
+    const area = fakeArea({ request: vi.fn(() => Promise.resolve(false)) });
+    withChrome(area);
+
+    await expect(requestFeaturePermissions('errorCapture')).resolves.toBe(false);
+    expect(area.request).toHaveBeenCalledTimes(1);
+  });
+
   it('revokeFeaturePermissions removes optional grants but never storage', async () => {
     const area = fakeArea();
     withChrome(area);
