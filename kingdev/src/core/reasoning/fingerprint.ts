@@ -165,6 +165,54 @@ export function normalizeFrame(frame: StackFrame | undefined): string {
  * ------------------------------------------------------------------ */
 
 /**
+ * Parses one stack line in the V8 shape `at fn (url:line:col)` (the fn part
+ * is optional). Returns undefined when the line does not match.
+ */
+function parseV8Line(line: string): StackFrame | undefined {
+  const withName = /^at\s+(?:(.+?)\s+\()?(.*?):(\d+):(\d+)\)?$/.exec(line);
+  if (!withName) return undefined;
+  return {
+    functionName: (withName[1] ?? '').trim() || '<anonymous>',
+    url: withName[2] ?? '',
+    lineNumber: Number(withName[3] ?? 0),
+    columnNumber: Number(withName[4] ?? 0),
+  };
+}
+
+/** Parses one stack line in the Firefox/Safari shape `fn@url:line:col`. */
+function parseFirefoxLine(line: string): StackFrame | undefined {
+  const firefox = /^(.*?)@(.*?):(\d+):(\d+)$/.exec(line);
+  if (!firefox) return undefined;
+  return {
+    functionName: (firefox[1] ?? '').trim() || '<anonymous>',
+    url: firefox[2] ?? '',
+    lineNumber: Number(firefox[3] ?? 0),
+    columnNumber: Number(firefox[4] ?? 0),
+  };
+}
+
+/** Parses one stack line in the bare shape `url:line:col` (anonymous frame). */
+function parseBareLine(line: string): StackFrame | undefined {
+  const bare = /^(.*?):(\d+):(\d+)$/.exec(line);
+  if (!bare) return undefined;
+  return {
+    functionName: '<anonymous>',
+    url: bare[1] ?? '',
+    lineNumber: Number(bare[2] ?? 0),
+    columnNumber: Number(bare[3] ?? 0),
+  };
+}
+
+/** Parses one non-empty stack line with the first matching shape. */
+function parseStackLine(line: string): StackFrame | undefined {
+  if (line.startsWith('at ')) {
+    const v8 = parseV8Line(line);
+    if (v8) return v8;
+  }
+  return parseFirefoxLine(line) ?? parseBareLine(line);
+}
+
+/**
  * Parses a V8 `Error.stack` string into frames.
  *
  * Handles both the `at fn (url:line:col)` and the bare `url:line:col` shapes,
@@ -178,38 +226,8 @@ export function parseStack(stack: string | undefined): StackFrame[] {
   for (const raw of stack.split('\n')) {
     const line = raw.trim();
     if (!line) continue;
-    if (line.startsWith('at ')) {
-      const withName = /^at\s+(?:(.+?)\s+\()?(.*?):(\d+):(\d+)\)?$/.exec(line);
-      if (withName) {
-        frames.push({
-          functionName: (withName[1] ?? '').trim() || '<anonymous>',
-          url: withName[2] ?? '',
-          lineNumber: Number(withName[3] ?? 0),
-          columnNumber: Number(withName[4] ?? 0),
-        });
-        continue;
-      }
-    }
-    // Firefox/Safari shape: fn@url:line:col
-    const firefox = /^(.*?)@(.*?):(\d+):(\d+)$/.exec(line);
-    if (firefox) {
-      frames.push({
-        functionName: (firefox[1] ?? '').trim() || '<anonymous>',
-        url: firefox[2] ?? '',
-        lineNumber: Number(firefox[3] ?? 0),
-        columnNumber: Number(firefox[4] ?? 0),
-      });
-      continue;
-    }
-    const bare = /^(.*?):(\d+):(\d+)$/.exec(line);
-    if (bare) {
-      frames.push({
-        functionName: '<anonymous>',
-        url: bare[1] ?? '',
-        lineNumber: Number(bare[2] ?? 0),
-        columnNumber: Number(bare[3] ?? 0),
-      });
-    }
+    const frame = parseStackLine(line);
+    if (frame) frames.push(frame);
   }
 
   return frames;
@@ -295,23 +313,11 @@ function safeStringify(value: unknown): string {
 }
 
 /**
- * Converts a live `Error` into a structured-clone-safe `SerializedError`.
- *
- * Non-`Error` throwables are normalised rather than rejected, because
- * `throw { code: 401 }` and `throw 'boom'` are both common in application code
- * and are exactly the cases a debugger must not drop on the floor.
+ * Normalises a non-`Error` throwable into a `SerializedError`. `throw { code:
+ * 401 }` and `throw 'boom'` are both common in application code and are
+ * exactly the cases a debugger must not drop on the floor.
  */
-export function serializeError(cause: unknown, maxFrames = 40): SerializedError {
-  if (cause instanceof Error) {
-    const stack = typeof cause.stack === 'string' ? cause.stack : undefined;
-    return {
-      name: cause.name || 'Error',
-      message: cause.message ?? '',
-      ...(stack ? { stack } : {}),
-      frames: parseStack(stack).slice(0, maxFrames),
-    };
-  }
-
+function serializeNonError(cause: Exclude<unknown, Error>, maxFrames: number): SerializedError {
   if (typeof cause === 'string') {
     return { name: 'Error', message: cause, frames: [] };
   }
@@ -335,6 +341,26 @@ export function serializeError(cause: unknown, maxFrames = 40): SerializedError 
   }
 
   return { name: 'Error', message: String(cause), frames: [] };
+}
+
+/**
+ * Converts a live `Error` into a structured-clone-safe `SerializedError`.
+ *
+ * Non-`Error` throwables are normalised rather than rejected, because
+ * `throw { code: 401 }` and `throw 'boom'` are both common in application code
+ * and are exactly the cases a debugger must not drop on the floor.
+ */
+export function serializeError(cause: unknown, maxFrames = 40): SerializedError {
+  if (cause instanceof Error) {
+    const stack = typeof cause.stack === 'string' ? cause.stack : undefined;
+    return {
+      name: cause.name || 'Error',
+      message: cause.message ?? '',
+      ...(stack ? { stack } : {}),
+      frames: parseStack(stack).slice(0, maxFrames),
+    };
+  }
+  return serializeNonError(cause, maxFrames);
 }
 
 /** Convenience: fingerprint a `SerializedError` directly. */

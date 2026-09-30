@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>KingDev consent-flow test page</title>
+</head>
+<body>
+  <h1>KingDev consent-flow test page</h1>
+  <p>This page deliberately throws twice and logs a console error so the
+  capture pipeline has something to observe once consent is granted.</p>
+  <script>
+    console.error('kingdev-test: deliberate console error payload');
+    setTimeout(() => {
+      try {
+        // null-access uncaught error from app-like code
+        const data = null;
+        // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+        data.userId.name;
+      } catch (e) {
+        // rethrow async so it becomes an uncaught error with a stack
+        setTimeout(() => { throw e; }, 0);
+      }
+    }, 300);
+  </script>
+</body>
+</html>
