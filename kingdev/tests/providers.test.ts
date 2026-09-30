@@ -268,13 +268,19 @@ describe('KeyVault', () => {
     expect(await vault.hasKey('anthropic')).toBe(false);
   });
 
-  it('fails closed on unreadable storage', async () => {
+  it('surfaces storage failure in loadAll but reads safely for display paths', async () => {
     const failing: KeyValueStore = {
       get: () => Promise.reject(new Error('gone')),
       set: () => Promise.reject(new Error('gone')),
     };
     const vault = new KeyVault(failing);
-    expect(await vault.loadAll()).toEqual({});
+    // Egress paths must see the difference between "no key" and "cannot
+    // know" — loadAll throws so callers fail closed on the latter.
+    await expect(vault.loadAll()).rejects.toThrow('gone');
+    // Display paths (settings UI, diagnostics) read "no keys" instead of
+    // rendering a broken store as "configured".
+    const safe = await vault.loadAllSafe();
+    expect(safe).toEqual({ ok: false, error: expect.anything() });
     expect(await vault.presence()).toEqual({});
   });
 });

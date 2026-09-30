@@ -14,10 +14,14 @@
  *   - Settings    : provider, redaction, and permission/consent controls
  */
 
+import { defaultStorageAreas } from '@/background/service-worker';
 import { getRequests, isHarAvailable, onRequestCompleted } from '@/browser/devtools/har-bridge';
+import { analyzeIssue } from '@/core/analysis/analyzer';
+import type { AnalysisOutcome } from '@/core/analysis/analyzer';
 import { PROVIDERS } from '@/core/providers/catalog';
+import { KeyVault } from '@/core/providers/key-vault';
 import { groupErrors } from '@/core/reasoning/grouping';
-import { toIssueViews } from '@/core/reasoning/issue';
+import { type IssueView, toIssueViews } from '@/core/reasoning/issue';
 import type {
   CaptureState,
   CapturedError,
@@ -238,14 +242,134 @@ export function NetworkTab(props: {
  * Analysis tab
  * ------------------------------------------------------------------ */
 
+export interface AnalysisRunState {
+  readonly groupId: string;
+  readonly status: 'running' | 'done' | 'error';
+  readonly outcome?: AnalysisOutcome;
+  readonly message?: string;
+}
+
+function AiAnalysisResult(props: { run: AnalysisRunState }): React.ReactElement {
+  const outcome = props.run.outcome;
+  if (!outcome) {
+    return <output className="kingdev-hint">Analysing…</output>;
+  }
+  const { analysis } = outcome;
+  return (
+    <div className="kingdev-ai-result">
+      <p className="kingdev-hint">
+        {analysis.title} — model {outcome.modelId}, {outcome.latencyMs} ms, prompt{' '}
+        {outcome.promptChars} chars · confidence: {analysis.confidence}
+        {outcome.modelAsserted ? ' (model-asserted — no rule backed the cause)' : ''}
+      </p>
+      <p>{analysis.summary}</p>
+      <p>
+        <strong>Cause:</strong> {analysis.rootCause} <em>({analysis.rootCauseCategory})</em>
+      </p>
+      {analysis.alternatives.length > 0 ? (
+        <details>
+          <summary>Alternative causes ({analysis.alternatives.length})</summary>
+          <ul>
+            {analysis.alternatives.map((alt) => (
+              <li key={alt.statement}>
+                {alt.statement} — <strong>test:</strong> {alt.discriminatingTest}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+      {analysis.fixes.length > 0 ? (
+        <details>
+          <summary>Proposed fixes ({analysis.fixes.length})</summary>
+          <ul>
+            {analysis.fixes.map((fix) => (
+              <li key={fix.title}>
+                <strong>{fix.title}</strong> ({fix.approach}, risk: {fix.risk}) — {fix.whatChanges}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+      {analysis.unknowns.length > 0 ? (
+        <details>
+          <summary>What stays unknown ({analysis.unknowns.length})</summary>
+          <ul>
+            {analysis.unknowns.map((unknown) => (
+              <li key={unknown}>{unknown}</li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+      {outcome.deterministicContradicted ? (
+        <div className="kingdev-egress-warning" role="alert">
+          <strong>The model contradicted the deterministic finding.</strong>
+          <ul>
+            {outcome.contradictionNotes.map((note) => (
+              <li key={note}>{note}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function AnalysisTab(props: {
   groups: readonly ErrorGroup[];
   aiAvailable: boolean;
   aiConfigured?: boolean;
+  runs?: Readonly<Record<string, AnalysisRunState>>;
+  onAnalyze?: (groupId: string) => void;
 }): React.ReactElement {
   const issues = toIssueViews(props.groups);
   const deterministic = issues.filter((issue) => !issue.needsModel);
   const needingModel = issues.filter((issue) => issue.needsModel);
+  const runs = props.runs ?? {};
+
+  const issueRow = (issue: IssueView): React.ReactElement => {
+    const run = runs[issue.id];
+    return (
+      <li key={issue.id}>
+        <header>
+          <SeverityBadge severity={issue.severity} />
+          <strong>{issue.category}</strong>
+          {issue.ruleIds.length > 0 ? (
+            <span className="kingdev-rules"> rules: {issue.ruleIds.join(', ')}</span>
+          ) : null}
+        </header>
+        <p>{issue.statement}</p>
+        {issue.alternatives.length > 0 ? (
+          <details>
+            <summary>How to tell alternatives apart</summary>
+            <ul>
+              {issue.alternatives.map((alt) => (
+                <li key={alt.title}>
+                  {alt.title} — <strong>test:</strong> {alt.test}
+                </li>
+              ))}
+            </ul>
+          </details>
+        ) : null}
+        {props.onAnalyze ? (
+          <p>
+            <button
+              type="button"
+              onClick={() => props.onAnalyze?.(issue.id)}
+              disabled={run?.status === 'running'}
+            >
+              {run?.status === 'running' ? 'Analysing…' : 'Analyze with AI'}
+            </button>
+          </p>
+        ) : null}
+        {run?.status === 'error' ? (
+          <p className="kingdev-egress-warning" role="alert">
+            Analysis failed: {run.message}
+          </p>
+        ) : null}
+        {run?.status === 'done' && run.outcome ? <AiAnalysisResult run={run} /> : null}
+      </li>
+    );
+  };
 
   return (
     <div className="kingdev-analysis">
@@ -254,30 +378,7 @@ export function AnalysisTab(props: {
         {deterministic.length === 0 ? (
           <p className="kingdev-empty">No rule-based root cause matched the captured errors yet.</p>
         ) : (
-          <ol className="kingdev-issue-list">
-            {deterministic.map((issue) => (
-              <li key={issue.id}>
-                <header>
-                  <SeverityBadge severity={issue.severity} />
-                  <strong>{issue.category}</strong>
-                  <span className="kingdev-rules"> rules: {issue.ruleIds.join(', ')}</span>
-                </header>
-                <p>{issue.statement}</p>
-                {issue.alternatives.length > 0 ? (
-                  <details>
-                    <summary>How to tell alternatives apart</summary>
-                    <ul>
-                      {issue.alternatives.map((alt) => (
-                        <li key={alt.title}>
-                          {alt.title} — <strong>test:</strong> {alt.test}
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                ) : null}
-              </li>
-            ))}
-          </ol>
+          <ol className="kingdev-issue-list">{deterministic.map(issueRow)}</ol>
         )}
       </section>
       {needingModel.length > 0 ? (
@@ -287,18 +388,16 @@ export function AnalysisTab(props: {
             No deterministic rule matched these. They need an AI provider, or a wider evidence
             source such as a source map.
           </p>
-          <ul>
-            {needingModel.map((issue) => (
-              <li key={issue.id}>{issue.title}</li>
-            ))}
-          </ul>
+          <ul>{needingModel.map(issueRow)}</ul>
         </section>
       ) : null}
       <section>
         <h3>AI analysis</h3>
         {props.aiAvailable ? (
-          <p className="kingdev-empty">
-            Model-backed analysis of these issues starts from Settings → Providers.
+          <p className="kingdev-hint">
+            “Analyze with AI” sends this issue's captured evidence (error, stack, correlated
+            requests) to the configured provider. That is egress: it only runs because you enabled
+            it in Settings.
           </p>
         ) : (
           <UnavailableNotice
@@ -696,6 +795,78 @@ export function PanelApp(props: { rpc?: WorkerRpc }): React.ReactElement {
     [rpc, reload],
   );
 
+  /* Phase 4: AI analysis ---------------------------------------------- */
+  const [analysisRuns, setAnalysisRuns] = useState<Readonly<Record<string, AnalysisRunState>>>({});
+
+  const groups = groupsFromErrors(errors);
+
+  const runAnalysis = useCallback(
+    (groupId: string) => {
+      const group = groups.find((g) => g.id === groupId);
+      const currentSettings = settings;
+      if (!group || !currentSettings) return;
+
+      setAnalysisRuns((current) => ({
+        ...current,
+        [groupId]: { groupId, status: 'running' },
+      }));
+
+      void analyzeIssue({
+        group,
+        representative:
+          errors.find((error) => error.id === group.representativeErrorId) ??
+          ({
+            id: group.representativeErrorId,
+            kind: 'javascript',
+            name: group.title.split(':')[0] ?? 'Error',
+            message: group.title,
+            frames: [],
+            timestamp: group.firstSeenAt,
+            fingerprint: group.fingerprint,
+            occurrences: group.duplicateCount,
+            origin: 'content-script',
+            relatedConsoleIds: group.relatedConsoleIds,
+            relatedRequestIds: group.relatedRequestIds,
+            pageUrl: '',
+            pageTitle: '',
+          } as CapturedError),
+        groupErrors: errors.filter((error) => group.errorIds.includes(error.id)),
+        correlatedRequests: requests.filter((request) =>
+          group.relatedRequestIds.includes(request.id),
+        ),
+        pageUrl: group.firstSeenAt ? (errors[0]?.pageUrl ?? '') : '',
+        settings: currentSettings,
+        consent,
+        grantedPermissions: permissions?.grantedPermissions ?? [],
+        ports: { keyVault: new KeyVault(defaultStorageAreas().local) },
+      })
+        .then((result) => {
+          if (result.ok) {
+            setAnalysisRuns((current) => ({
+              ...current,
+              [groupId]: { groupId, status: 'done', outcome: result.value },
+            }));
+          } else {
+            setAnalysisRuns((current) => ({
+              ...current,
+              [groupId]: { groupId, status: 'error', message: result.error.message },
+            }));
+          }
+        })
+        .catch((cause: unknown) => {
+          setAnalysisRuns((current) => ({
+            ...current,
+            [groupId]: {
+              groupId,
+              status: 'error',
+              message: cause instanceof Error ? cause.message : String(cause),
+            },
+          }));
+        });
+    },
+    [groups, errors, requests, settings, consent, permissions],
+  );
+
   const captureAvailable =
     consent.grantedFeatures.includes('errorCapture') &&
     (permissions?.featuresWithGrants.includes('errorCapture') ?? false);
@@ -742,9 +913,11 @@ export function PanelApp(props: { rpc?: WorkerRpc }): React.ReactElement {
         ) : null}
         {tab === 'analysis' ? (
           <AnalysisTab
-            groups={groupsFromErrors(errors)}
+            groups={groups}
             aiAvailable={aiConsented && activeProviderConfigured}
             aiConfigured={activeProviderConfigured}
+            runs={analysisRuns}
+            onAnalyze={aiConsented && activeProviderConfigured ? runAnalysis : undefined}
           />
         ) : null}
         {tab === 'settings' ? (

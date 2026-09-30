@@ -37,27 +37,46 @@ export function toKeyPresence(keys: KeyMap): KeyPresence {
   return out;
 }
 
+/**
+ * Load result of `loadAllSafe` — distinguishes "no keys stored" from "the
+ * store itself failed", which the fail-loud `loadAll` surfaces as an error.
+ */
+export type KeyLoad = { ok: true; keys: KeyMap } | { ok: false; error: unknown };
+
 export class KeyVault {
   constructor(private readonly store: KeyValueStore) {}
 
+  /**
+   * Reads every stored key. Throws when the backing store itself fails —
+   * callers that gate egress must see the difference between "no key" and
+   * "cannot know" and fail closed on the latter, not silently read as empty.
+   */
   async loadAll(): Promise<KeyMap> {
+    const raw = await this.store.get(PROVIDER_KEYS_STORAGE_KEY);
+    if (typeof raw !== 'object' || raw === null) return {};
+    const out: Record<string, string> = {};
+    for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
+      if (typeof value === 'string' && value.length > 0) out[id] = value;
+    }
+    return out;
+  }
+
+  /**
+   * Non-throwing projection for display paths (settings UI, diagnostics):
+   * an unreadable vault reads as "no keys" there, because a broken store must
+   * not render as "configured". Egress paths use `loadAll` instead.
+   */
+  async loadAllSafe(): Promise<KeyLoad> {
     try {
-      const raw = await this.store.get(PROVIDER_KEYS_STORAGE_KEY);
-      if (typeof raw !== 'object' || raw === null) return {};
-      const out: Record<string, string> = {};
-      for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
-        if (typeof value === 'string' && value.length > 0) out[id] = value;
-      }
-      return out;
-    } catch {
-      // Fail closed: an unreadable vault reads as "no keys", not as an error
-      // the UI would render as "configured".
-      return {};
+      return { ok: true, keys: await this.loadAll() };
+    } catch (error) {
+      return { ok: false, error };
     }
   }
 
   async presence(): Promise<KeyPresence> {
-    return toKeyPresence(await this.loadAll());
+    const loaded = await this.loadAllSafe();
+    return toKeyPresence(loaded.ok ? loaded.keys : {});
   }
 
   async set(providerId: ProviderId, key: string | null): Promise<KeyPresence> {

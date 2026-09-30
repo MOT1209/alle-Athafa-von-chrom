@@ -131,6 +131,12 @@ export const CONFIDENCE_ORDER: readonly ConfidenceLevel[] = [
   'unknown',
 ] as const;
 
+/** Runtime vocabulary of `ConfidenceLevel` — model output is validated against it. */
+export const CONFIDENCE_LEVELS: readonly ConfidenceLevel[] = CONFIDENCE_ORDER;
+
+/** Runtime vocabulary of `Severity` — model output is validated against it. */
+export const SEVERITIES: readonly Severity[] = SEVERITY_ORDER;
+
 /** Why a severity or confidence value was assigned. Never shown without this. */
 export interface Justification {
   readonly signal: string;
@@ -321,6 +327,26 @@ export type RootCauseCategory =
   | 'runtime-invariant'
   | 'unknown';
 
+/** Runtime vocabulary of `RootCauseCategory` — model output is validated against it. */
+export const ROOT_CAUSE_CATEGORIES: readonly RootCauseCategory[] = [
+  'undefined-access',
+  'network-failure',
+  'auth-expired',
+  'cors',
+  'bad-api-response',
+  'type-mismatch',
+  'missing-dependency',
+  'syntax-or-bundle',
+  'hydration',
+  'race-condition',
+  'configuration',
+  'resource-missing',
+  'unhandled-promise',
+  'permissions-policy',
+  'runtime-invariant',
+  'unknown',
+] as const;
+
 export interface RootCause {
   readonly category: RootCauseCategory;
   readonly statement: string;
@@ -389,6 +415,17 @@ export interface TimelineEvent {
 
 export type FixApproach = 'quick' | 'safe' | 'recommended' | 'architectural';
 export type RiskLevel = 'none' | 'low' | 'medium' | 'high';
+
+/** Runtime vocabulary of `FixApproach` — model output is validated against it. */
+export const FIX_APPROACHES: readonly FixApproach[] = [
+  'quick',
+  'safe',
+  'recommended',
+  'architectural',
+] as const;
+
+/** Runtime vocabulary of `RiskLevel` — model output is validated against it. */
+export const RISK_LEVELS: readonly RiskLevel[] = ['none', 'low', 'medium', 'high'] as const;
 
 export interface CodeDiff {
   readonly path: string;
