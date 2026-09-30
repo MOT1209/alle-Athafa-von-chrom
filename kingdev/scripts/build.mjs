@@ -16,7 +16,7 @@
  * is enforced here, not hoped for.
  */
 
-import { cpSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { build } from 'esbuild';
 
@@ -85,6 +85,9 @@ function verifyOutput() {
 }
 
 async function runOnce() {
+  // Clean output: a stale file from a previous build must never ship just
+  // because today's build stopped emitting it (rmSync is a no-op if absent).
+  rmSync(dist, { recursive: true, force: true });
   mkdirSync(dist, { recursive: true });
 
   const result = await build({
@@ -98,7 +101,9 @@ async function runOnce() {
     format: 'esm',
     target: ['chrome116'],
     platform: 'browser',
-    sourcemap: true,
+    // Release-grade output: no source maps in dist/ — they leak the source
+    // tree layout into a public artifact. `--watch` (dev) keeps maps below.
+    sourcemap: false,
     minify: false,
     jsx: 'automatic',
     logLevel: 'info',

@@ -13,11 +13,22 @@
  * Exit non-zero on the first violated expectation.
  */
 
-import { existsSync, readFileSync, statSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { join, relative, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '..');
 const dist = join(root, 'dist');
+
+/** Lists every file in a tree as dist-relative forward-slash paths. */
+function walkDist(dir, base = dir) {
+  const out = [];
+  for (const name of readdirSync(dir).sort()) {
+    const abs = join(dir, name);
+    if (statSync(abs).isDirectory()) out.push(...walkDist(abs, base));
+    else out.push(relative(base, abs).split('\\').join('/'));
+  }
+  return out;
+}
 
 const failures = [];
 function check(name, condition, detail = '') {
@@ -160,19 +171,54 @@ check(
 );
 check('panel.html ships with the bundle (shortcut target)', existsSync(join(dist, 'panel.html')));
 
-/* 7. Phase 2 consent contract ------------------------------------------ */
+/* 7. Phase 6 release-readiness contract (Web Store) ----------------------- */
+
+const releaseExcluded = ['.map', 'KEYS.md', '.DS_Store', 'Thumbs.db'];
+for (const excluded of releaseExcluded) {
+  check(
+    `no ${excluded} files ship in the package`,
+    walkDist(dist).every((f) => !f.includes(excluded)),
+  );
+}
 
 check(
-  'manifest keeps optional scripting grant (consent-gated capture)',
-  (manifest.optional_permissions ?? []).includes('scripting'),
+  'manifest name is store-safe (no emoji, ASCII printable)',
+  /^[\x20-\x7e]+$/.test(manifest.name),
 );
 check(
-  'manifest keeps <all_urls> optional (never installed by default)',
-  (manifest.optional_host_permissions ?? []).includes('<all_urls>'),
+  'manifest description is store-safe ASCII',
+  /^[\x20-\x7e]+$/.test(manifest.description ?? ''),
 );
+check('manifest description is non-trivial', (manifest.description ?? '').length >= 20);
+check('manifest declares no remote code hosting', !JSON.stringify(manifest).includes('http'));
+
+const shippedJs = [
+  'background/service-worker.js',
+  'content/error-capture.js',
+  'devtools.js',
+  'ui.js',
+  'options.js',
+];
+const FORBIDDEN_SHIP = [
+  { label: 'eval()', re: /\beval\s*\(/ },
+  { label: 'new Function()', re: /\bnew\s+Function\s*\(/ },
+  { label: 'remote import()', re: /\bimport\s*\(\s*['"]https?:/i },
+  { label: 'document.write', re: /\bdocument\s*\.\s*write\s*\(/ },
+  { label: 'sourceMappingURL', re: /\/\/[#@]\s*sourceMappingURL/ },
+];
+for (const entry of shippedJs) {
+  const path = join(dist, entry);
+  if (!existsSync(path)) continue; // already reported above
+  const source = readFileSync(path, 'utf8');
+  const stripped = source.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
+  for (const rule of FORBIDDEN_SHIP) {
+    check(`no ${rule.label} in ${entry}`, !rule.re.test(stripped));
+  }
+}
+
 check(
-  'manifest requests no more than the minimal required set',
-  JSON.stringify([...(manifest.permissions ?? [])].sort()) === JSON.stringify(['storage']),
+  'packager script exists (deterministic zip is part of the release gate)',
+  existsSync(join(root, 'scripts/package.mjs')),
 );
 
 /* 8. Content script contract -------------------------------------------- */

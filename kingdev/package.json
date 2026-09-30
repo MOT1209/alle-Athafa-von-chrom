@@ -11,6 +11,8 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "build:watch": "node scripts/build.mjs --watch",
+    "package": "npm run verify && node scripts/package.mjs",
+    "release": "npm run icons && npm run package -- --out kingdev-v$npm_package_version.zip",
     "icons": "node scripts/icons.mjs",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.scripts.json",
     "lint": "biome check .",
