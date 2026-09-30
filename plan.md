@@ -37,7 +37,7 @@
 | `src/ui/` (`app.tsx`, `rpc.ts`, `main.tsx`, `panel.html`, `options.html`) | واجهة التبويبات + عمول RPC مُنمَّط + حوار الموافقة (عرضًا؛ الربط في المرحلة 2) |
 | `scripts/build.mjs` | esbuild بأربع نقاط دخول + نسخ الأصول + تحقق من اكتمال الحزمة |
 | `scripts/e2e.mjs` | 27 فحصًا: صحة manifest، وجود كل ملف مُشار إليه، لا Node builtins في الحِزم، عقد سكربت المحتوى |
-| `icons/` | أيقونات PNG مؤقتة (شمعونة) حتى يُصمم الشعار النهائي |
+| `icons/` | أيقونات تاج مولّدة برمجيًا (`scripts/icons.mjs`، بلا اعتماديات، مخرجات حتمية) |
 
 ### مبنية في المرحلة 2 ✅
 
@@ -61,16 +61,23 @@
 | `src/browser/devtools/har-bridge.ts` | جسر `chrome.devtools.network`: لقطة `getHAR` بمهلة + بث `onRequestFinished` + `isHarAvailable()` صادقة تُعرض كما هي في الواجهة |
 | `src/core/providers/catalog.ts` | كتالوج المزودين الستة (openai/anthropic/google/openrouter/ollama/custom) + نماذج مقترحة — بيانات لا مسارات كود |
 | `src/core/providers/client.ts` | `complete()` موحّد عبر أربعة بروتوكولات سلكية؛ خريطة أخطاء ثابتة (401→AUTH، 429→RATE_LIMIT، 5xx→BAD_RESPONSE retryable، fetch→NETWORK)؛ المهلة عبر AbortController؛ المفتاح يُحل عبر `KeyResolver` محقون |
-| `src/core/providers/key-vault.ts` | خزنة المفاتيح: القراءة الوحيدة الممكنة من الواجهة = **وجود** المفتاح لا قيمته؛ الإخفاق يُقرأ "لا مفاتيح" (fail-closed)؛ فحص هيكلي رخيص قبل الشبكة |
+| `src/core/providers/key-vault.ts` | خزنة المفاتيح: القراءة الوحيدة الممكنة من الواجهة = **وجود** المفتاح لا قيمته؛ `loadAll` يرمي عند عطل التخزين لمسارات الإخراج ("لا أستطيع أن أعرف" ≠ "لا مفتاح") و`loadAllSafe` لمسارات العرض؛ فحص هيكلي رخيص قبل الشبكة |
 | `src/core/reasoning/issue.ts` | `ErrorGroup` ← `IssueView`: عرض صريح `needsModel` عندما لا قاعدة تطابقت، و`discriminatingTest` يُمرر حرفيًا كما كتبته القاعدة |
 | الواجهة | NetworkTab ببيانات حقيقية (لقطة + بث حي)، قسم Providers في Settings (حفظ/إزالة/تفعيل مفتاح، حقل model id)، AnalysisTab بعرض Issues + قسم "Needs a model" |
 
+### مبنية في المرحلة 4 ✅
+
+| الوحدة | الدور |
+|---|---|
+| `src/core/prompt/engine.ts` | محرك المطالبات: أقسام مُعنونة من أدلة حتمية فقط (`groupErrors` + الطلبات المرتبطة + القواعد)؛ الـ binding finding يتقدم قسم root-cause؛ الميزانية تقتطع/تحذف المرن فقط وتُعيد فوق الميزانية بصدق إن نزلت تحت الأرضية البنيوية؛ `parseAiAnalysis` يفرض المخطط والمفردات، `extractJsonPayload` يتسامح مع الأسوار والنثريات، `fixes[].diffs` يُفرغ دائمًا؛ `reconcileWithDeterministic` يوسم التناقض ويجفف معرّفات الأدلة المجهولة |
+| `src/core/analysis/analyzer.ts` | `analyzeIssue`: بوابة الموافقة (`aiExplanation` + إصدار الموافقة الحالي + `storage`) **قبل** أي بناء prompt أو قراءة مفتاح؛ `modelSpecFor` يتحقق هيكليًا من model id الحر؛ استدعاء `complete()` واحد عبر منفذ HTTP قابل للحقن؛ كل فشل = `KingDevError` مُنمَّط لا استثناء للواجهة |
+| `src/core/types.ts` | مفردات وقت التشغيل للتحقق من مخرجات النموذج (`SEVERITIES`، `CONFIDENCE_LEVELS`، `ROOT_CAUSE_CATEGORIES`، `FIX_APPROACHES`، `RISK_LEVELS`) |
+| `src/ui/app.tsx` | AnalysisTab: زر التحليل يعمل end-to-end؛ عرض النتيجة (الثقة، model-asserted، البدائل والاختبارات المميزة، ما يبقى مجهولًا) وتنبيه صريح عند تناقض النموذج مع الحتمي |
+
 ### غير مبنية ❌
 
-- بناء الـ prompt من الأدلة الحتمية وحقن نتيجة `groupErrors` (المرحلة 4 — Agent Prompt Engine)
-- استدعاء المزود من اللوحة لتحليل الـ issues (البنية جاهزة: `complete()` + المفاتيح + الموافقة `aiExplanation` — يتبقى ربط زر التحليل بالـ prompt في المرحلة 4)
-- منع النموذج من تجاوز الدليل الحتمي (المرحلة 4)
-- `npm run verify` كامل يشمل بوابة الإصدار الأمنية (المرحلة 5)
+- فحص أمني شامل قبل النشر (المرحلة 5)
+- اختبار متصفح فعلي لتدفّق الموافقة الكامل (المرحلة 5)
 
 ---
 
@@ -145,16 +152,23 @@
 اللوحة تملك استدعاءات المزود (قرار معماري محسوم). ربط زر التحليل في AnalysisTab
 بالـ prompt سيأتي في المرحلة 4 بعد بناء محرك الـ prompt.
 
-### المرحلة 4 — Agent Prompt Engine
-- [ ] بناء الـ prompt من الأدلة الحتمية (لا من نص حر)
-- [ ] حقن نتيجة `groupErrors` كمُدخلات مُصنَّفة
-- [ ] استجابة مُهيكلة `{ hypothesis, cause, test, confidence }`
-- [ ] منع النموذج من تجاوز الدليل الحتمي
+### المرحلة 4 — Agent Prompt Engine ✅ مكتملة
+- [x] بناء الـ prompt من الأدلة الحتمية (لا من نص حر) — `core/prompt/engine.ts`، أقسام مُعنونة بمصدرها
+- [x] حقن نتيجة `groupErrors` كمُدخلات مُصنَّفة + الطلبات المرتبطة + القواعد التي اشتعلت
+- [x] استجابة مُهيكلة JSON مع تحقق مخطط صارم (`parseAiAnalysis`) — أي خرق = `PROVIDER_BAD_RESPONSE`
+- [x] منع النموذج من تجاوز الدليل الحتمي — الـ binding finding يتقدم قسم root-cause (لا تقتطعه الميزانية)،
+  و`reconcileWithDeterministic` يوسم أي تناقض بدل تبنيه صامتًا، ومعرّفات الأدلة المجهولة تُرشَّح
+- [x] ربط زر التحليل في اللوحة (`core/analysis/analyzer.ts`): بوابة الموافقة أولاً، منفذ HTTP قابل للحقن
+  (الاختبارات بلا شبكة)، `KeyVault.loadAll` يرمي عند عطل التخزين لمسارات الإخراج (fail-closed على
+  "لا أستطيع أن أعرف") مع `loadAllSafe` لمسارات العرض
 
 ### المرحلة 5 — بوابة الإصدار
-- [ ] `npm run verify` كامل (typecheck + lint + test + build)
+- [x] أول commit للمشروع خارج `README.md` (التاريخ محفوظ ومفوش على origin/main)
+- [x] أيقونات حقيقية 16/48/128 (`scripts/icons.mjs` — PNG بلا اعتماديات، مخرجات حتمية)
+- [x] `tsconfig` منفصل للسكربتات (`tsconfig.scripts.json`) — لم تعد واجهات Node تتسرب لكود المتصفح
+- [ ] `npm run verify` كامل (typecheck + lint + test + build) — يعمل؛ يبقى تحذيرا `fingerprint.ts` المعروفان
 - [ ] فحص أمني قبل النشر
-- [ ] أول commit للمشروع خارج `README.md`
+- [ ] اختبار متصفح فعلي لتدفّق الموافقة (فتح اللوحة → حوار → منح)
 
 ---
 
@@ -164,7 +178,7 @@
 cd kingdev
 npm run typecheck     # tsc --noEmit — نظيف
 npm run lint          # biome check — 0 أخطاء (تحذيرا fingerprint.ts المعروفان فقط)
-npm test              # 352 اختبارًا (306 سابقة + 46 من المرحلة 3)
+npm test              # 388 اختبارًا عبر 16 ملفًا
 npm run test:coverage # 96.46% — يفرض 90/85/80/90 وينجح
 npm run build         # dist/ جاهزة للتحميل من chrome://extensions
 npm run e2e           # 30 فحصًا على الحزمة المبنية — ينجح
@@ -175,17 +189,13 @@ npm run verify        # كل ما سبق — ينجح
 
 ## 6. التحذيرات المعروفة
 
-1. `"types": ["node"]` في `tsconfig.json` يجعل واجهات Node متاحة لكود المتصفح.
-   الحل طويل المدى: `tsconfig` منفصل لملفات `scripts/`.
-2. تحذيران غير مؤثرين: `noExcessiveCognitiveComplexity` في `fingerprint.ts:174` و `:304`.
-3. لم يُنشأ أي commit حتى الآن — التاريخ غير محفوظ.
-4. أيقونات `icons/*.png` شمعونة (1×1 شفاف) — تحتاج شعارًا حقيقيًا قبل النشر.
-5. `src/ui/**` مستثناة من عتبات التغطية مؤقتًا؛ منطق الواجهة مُختبر عبر `rpc.ts` ووحدات `security/`، والعرض عبر e2e.
-6. طلب الأذونات الاختيارية يتم من اللوحة بزر Enable (إيماءة مستخدم). تدفّق تجربة الاعتماد
+1. تحذيران غير مؤثرين: `noExcessiveCognitiveComplexity` في `fingerprint.ts:174` و `:304`.
+2. `src/ui/**` مستثناة من عتبات التغطية مؤقتًا؛ منطق الواجهة مُختبر عبر `rpc.ts` ووحدات `security/`، والعرض عبر e2e.
+3. طلب الأذونات الاختيارية يتم من اللوحة بزر Enable (إيماءة مستخدم). تدفّق تجربة الاعتماد
    الكامل (فتح اللوحة → حوار → منح) يحتاج اختبار متصفح فعلي في المرحلة 5.
-7. `CaptureStore` يُبقي الأخطاء في ذاكرة الـ worker (`session`-like): المزامنة عبر
+4. `CaptureStore` يُبقي الأخطاء في ذاكرة الـ worker (`session`-like): المزامنة عبر
    إعادة تشغيل الـ worker تتم عند القراءة من اللوحة، والتخزين الدائم للجلسات في `chrome.storage.local` فقط.
-8. استدعاءات المزود الفعلية (زر التحليل) تُربط في المرحلة 4 بعد محرك الـ prompt؛
-   `complete()` و`KeyVault` و`aiExplanation` consent جاهزة لها.
-9. أسماء الموديلات في `SUGGESTED_MODELS` قائمة اقتراحات تتقادم مع دورة نشر المزودين؛
+5. أسماء الموديلات في `SUGGESTED_MODELS` قائمة اقتراحات تتقادم مع دورة نشر المزودين؛
    حقل model id حر في الإعدادات دائمًا.
+6. الأيقونات مولّدة برمجيًا (`npm run icons`) — تُعاد التوليد إذا تغيّر الهوية البصرية؛
+   المخرجات حتمية فلا تتغيّر البايتات بين التشغيلات.

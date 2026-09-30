@@ -269,6 +269,33 @@ describe('analyzeIssue', () => {
     expect(http.calls).toHaveLength(0);
   });
 
+  it('masks secret-shaped strings in evidence before anything leaves the device', async () => {
+    const leaky = error({
+      message: 'auth failed for sk-live-abc123def456ghi789 on /checkout',
+    });
+    const { http, input: payload } = input({
+      settings: { redactSecrets: true },
+    });
+    const withLeak = { ...payload, representative: leaky, groupErrors: [leaky] };
+    const result = await analyzeIssue(withLeak);
+    expect(result.ok).toBe(true);
+    const body = String(http.calls[0]?.init.body);
+    expect(body).not.toContain('sk-live-abc123def456ghi789');
+  });
+
+  it('sends evidence unmasked only when the user explicitly disabled redaction', async () => {
+    const leaky = error({
+      message: 'auth failed for sk-live-abc123def456ghi789 on /checkout',
+    });
+    const { http, input: payload } = input({
+      settings: { redactSecrets: false },
+    });
+    const withLeak = { ...payload, representative: leaky, groupErrors: [leaky] };
+    await analyzeIssue(withLeak);
+    const body = String(http.calls[0]?.init.body);
+    expect(body).toContain('sk-live-abc123def456ghi789');
+  });
+
   it('runs the full pipeline and returns a reconciled outcome', async () => {
     const { http, input: payload } = input();
     const result = await analyzeIssue(payload);

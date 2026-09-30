@@ -35,6 +35,7 @@ import type {
   Settings,
 } from '@/core/types';
 import { err, kingDevError, ok } from '@/core/types';
+import { maskSecretsInString } from '@/security/masking';
 import type { ConsentState } from '@/security/permissions';
 import { CONSENT_VERSION, evaluateFeatureAccess } from '@/security/permissions';
 
@@ -171,12 +172,46 @@ export async function analyzeIssue(
   if (!spec.ok) return spec;
 
   // --- 3. Prompt from deterministic evidence ---------------------------
+  // Egress hygiene: everything about to leave the device passes the masking
+  // rules first. `redactSecrets` masks credential-shaped strings and is the
+  // default; `redactPii` additionally strips personal identifiers. Captured
+  // page data is untrusted by nature — it may embed tokens the page leaked
+  // into console text, stack traces, or URLs.
+  const maskOptions = { redactPii: input.settings.redactPii };
+  const mask = (text: string): string =>
+    input.settings.redactSecrets ? maskSecretsInString(text, maskOptions) : text;
+  const maskedGroup: ErrorGroup = {
+    ...input.group,
+    rootCause: {
+      ...input.group.rootCause,
+      statement: mask(input.group.rootCause.statement),
+    },
+    title: mask(input.group.title),
+  };
+  const maskedRepresentative: CapturedError = {
+    ...input.representative,
+    message: mask(input.representative.message),
+    stack: input.representative.stack === undefined ? undefined : mask(input.representative.stack),
+    pageUrl: mask(input.representative.pageUrl),
+  };
+  const maskedErrors = input.groupErrors.map((error) => ({
+    ...error,
+    message: mask(error.message),
+    stack: error.stack === undefined ? undefined : mask(error.stack),
+    pageUrl: mask(error.pageUrl),
+  }));
+  const maskedRequests = input.correlatedRequests.map((request) => ({
+    ...request,
+    url: mask(request.url),
+    errorText: request.errorText === undefined ? undefined : mask(request.errorText),
+  }));
+
   const prompt = buildAnalysisPrompt({
-    group: input.group,
-    representative: input.representative,
-    correlatedRequests: input.correlatedRequests,
-    groupErrors: input.groupErrors,
-    pageUrl: input.pageUrl,
+    group: maskedGroup,
+    representative: maskedRepresentative,
+    correlatedRequests: maskedRequests,
+    groupErrors: maskedErrors,
+    pageUrl: mask(input.pageUrl),
     budgetChars: input.settings.promptBudgetChars,
     deterministicUnknown: input.group.rootCause.ruleIds.length === 0,
   });

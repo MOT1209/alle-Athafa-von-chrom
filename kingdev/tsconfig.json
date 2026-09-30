@@ -18,11 +18,11 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
-    "types": ["chrome", "vitest/globals", "node"],
+    "types": ["chrome", "vitest/globals"],
     "paths": {
       "@/*": ["src/*"]
     }
   },
-  "include": ["src", "tests", "scripts", "vitest.config.ts"],
+  "include": ["src", "tests", "vitest.config.ts"],
   "exclude": ["node_modules", "dist"]
 }
