@@ -20,6 +20,14 @@
   "action": {
     "default_title": "KingDev"
   },
+  "commands": {
+    "open-panel": {
+      "suggested_key": {
+        "default": "Ctrl+J"
+      },
+      "description": "Open the KingDev panel in a tab"
+    }
+  },
   "permissions": ["storage"],
   "optional_permissions": ["scripting"],
   "host_permissions": [],

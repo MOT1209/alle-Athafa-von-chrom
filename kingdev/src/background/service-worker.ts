@@ -73,6 +73,7 @@ export interface ChromeLike {
   runtime?: {
     id?: string;
     lastError?: { message?: string } | undefined;
+    getURL(path: string): string;
     onInstalled: { addListener(cb: () => void): void };
     onMessage: {
       addListener(
@@ -83,6 +84,20 @@ export interface ChromeLike {
         ) => boolean | undefined,
       ): void;
     };
+  };
+  commands?: {
+    onCommand: { addListener(cb: (command: string) => void): void };
+  };
+  tabs?: {
+    query(query: { url?: string }): Promise<{ id?: number; windowId?: number }[]>;
+    update(
+      tabId: number,
+      props: { active?: boolean },
+    ): Promise<{ id?: number; windowId?: number } | undefined>;
+    create(props: { url: string }): Promise<{ id?: number } | undefined>;
+  };
+  windows?: {
+    update(windowId: number, props: { focused?: boolean }): Promise<{ id?: number } | undefined>;
   };
 }
 
@@ -801,6 +816,28 @@ export function main(): void {
         await writeLocal({ [SETTINGS_KEY]: settings.value });
       }
     })().catch((cause) => logger.error('install', String(cause)));
+  });
+
+  // Ctrl+J (commands.open-panel): open the full panel as a tab, or focus its
+  // existing tab instead of stacking duplicates. Chrome cannot open the
+  // DevTools panel programmatically, so the shortcut surfaces the same UI in
+  // a regular tab — Issues/Analysis/Settings work there; the Network tab
+  // reports itself unavailable outside DevTools, as designed.
+  chrome?.commands?.onCommand?.addListener?.((command: string) => {
+    if (command !== 'open-panel') return;
+    const panelUrl = chrome.runtime?.getURL?.('panel.html') ?? 'panel.html';
+    void (async () => {
+      const tabs = (await chrome.tabs?.query({ url: panelUrl })) ?? [];
+      const existing = tabs[0];
+      if (existing?.id !== undefined) {
+        await chrome.tabs?.update(existing.id, { active: true });
+        if (existing.windowId !== undefined) {
+          await chrome.windows?.update(existing.windowId, { focused: true }).catch(() => undefined);
+        }
+        return;
+      }
+      await chrome.tabs?.create({ url: panelUrl });
+    })().catch((cause) => logger.error('open-panel', String(cause)));
   });
 
   if (!attached) logger.warn('bootstrap', 'chrome.runtime.onMessage unavailable in this context');

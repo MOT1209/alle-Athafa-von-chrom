@@ -144,6 +144,22 @@ check(
   JSON.stringify([...(manifest.permissions ?? [])].sort()) === JSON.stringify(['storage']),
 );
 
+/* 6b. Keyboard shortcut contract (Ctrl+J opens the panel tab) ------------ */
+
+check('manifest declares the open-panel command', manifest.commands?.['open-panel'] !== undefined);
+check(
+  'open-panel suggests Ctrl+J',
+  manifest.commands?.['open-panel']?.suggested_key?.default === 'Ctrl+J',
+);
+check(
+  'service worker wires onCommand for open-panel',
+  existsSync(join(dist, 'background/service-worker.js')) &&
+    /onCommand[\s\S]{0,120}open-panel/.test(
+      readFileSync(join(dist, 'background/service-worker.js'), 'utf8'),
+    ),
+);
+check('panel.html ships with the bundle (shortcut target)', existsSync(join(dist, 'panel.html')));
+
 /* 7. Phase 2 consent contract ------------------------------------------ */
 
 check(
