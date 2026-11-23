@@ -1,4 +1,4 @@
-# Architecture — VideoMind AI
+# Architecture — videoKING AI
 
 ## Layering
 

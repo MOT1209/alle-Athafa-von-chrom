@@ -43,7 +43,7 @@ const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 
 check('manifest_version is 3', manifest.manifest_version === 3);
-check('name is VideoMind AI', manifest.name === 'VideoMind AI');
+check('name is videoKING AI', manifest.name === 'videoKING AI');
 check(
   'version matches package.json',
   manifest.version === pkg.version,

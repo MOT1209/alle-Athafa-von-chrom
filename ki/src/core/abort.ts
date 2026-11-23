@@ -1,7 +1,7 @@
 import { AppError } from './errors';
 
 /**
- * Abort/timeout helpers. All cancellable operations in VideoMind compose these
+ * Abort/timeout helpers. All cancellable operations in videoKING compose these
  * so a single user cancel propagates through fetch, streams and retry waits.
  */
 

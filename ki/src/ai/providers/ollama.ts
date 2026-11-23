@@ -404,7 +404,7 @@ export class OllamaProvider implements LlmProvider {
       throw new AppError(
         'NOT_CONFIGURED',
         'No model configured for this request',
-        { hint: 'Choose a default model in the VideoMind popup.' },
+        { hint: 'Choose a default model in the videoKING popup.' },
       );
     }
     return model;

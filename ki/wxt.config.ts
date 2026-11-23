@@ -1,7 +1,7 @@
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'wxt';
 
-// VideoMind AI - Chrome MV3 via WXT.
+// videoKING AI - Chrome MV3 via WXT.
 // Local-first: the only host permissions are the loopback Ollama server.
 // Remote AI providers (future phases) must be optional_host_permissions, never required.
 export default defineConfig({
@@ -9,8 +9,8 @@ export default defineConfig({
   imports: false,
   outDir: '.output',
   manifest: {
-    name: 'VideoMind AI',
-    short_name: 'VideoMind',
+    name: 'videoKING AI',
+    short_name: 'videoKING',
     description:
       'Turn videos into searchable knowledge with local AI: summaries, chat, transcripts and learning tools. No paid APIs required.',
     permissions: ['storage', 'alarms'],
@@ -21,7 +21,7 @@ export default defineConfig({
       128: 'icon-128.png',
     },
     action: {
-      default_title: 'VideoMind AI',
+      default_title: 'videoKING AI',
       default_icon: {
         16: 'icon-16.png',
         48: 'icon-48.png',

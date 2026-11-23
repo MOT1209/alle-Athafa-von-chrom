@@ -33,7 +33,7 @@ if (!existsSync(join(outDir, 'manifest.json'))) {
 
 // Random port per run: avoids TIME_WAIT collisions from previous runs on Windows.
 const PORT = 9500 + Math.floor(Math.random() * 400);
-const userDataDir = mkdtempSync(join(tmpdir(), 'videomind-smoke-'));
+const userDataDir = mkdtempSync(join(tmpdir(), 'videoking-smoke-'));
 let failures = 0;
 let checks = 0;
 function check(name, cond, detail) {
@@ -184,7 +184,7 @@ try {
             returnByValue: true,
           })
           .catch(() => undefined);
-        if (nameResult?.result?.value === 'VideoMind AI') {
+        if (nameResult?.result?.value === 'videoKING AI') {
           extId = new URL(candidate.url).host;
           conn.close();
           break;
@@ -195,7 +195,7 @@ try {
     }
   }
   check('extension loaded into Chrome', Boolean(extId));
-  if (!extId) throw new Error('VideoMind extension not loaded');
+  if (!extId) throw new Error('videoKING extension not loaded');
 
   const newTab = await fetch(
     `http://127.0.0.1:${PORT}/json/new?chrome-extension://${extId}/popup.html`,
@@ -234,7 +234,7 @@ try {
     returnByValue: true,
   });
   const body = String(text.result?.value ?? '');
-  check('popup renders app title', body.includes('VideoMind AI'));
+  check('popup renders app title', body.includes('videoKING AI'));
   check('popup lists installed models', body.includes('qwen2.5:1.5b'));
   check(
     'popup shows runtime connection state',
@@ -246,7 +246,7 @@ try {
 
   // 3. Real typed RPC round-trip from the page through the SW to Ollama.
   const rpc = await page.send('Runtime.evaluate', {
-    expression: `chrome.runtime.sendMessage({kind:'videomind/request',id:'smoke_1',type:'runtime/testConnection',payload:undefined})`,
+    expression: `chrome.runtime.sendMessage({kind:'videoking/request',id:'smoke_1',type:'runtime/testConnection',payload:undefined})`,
     awaitPromise: true,
     returnByValue: true,
   });
@@ -259,7 +259,7 @@ try {
 
   // 4. Queue endpoint works too (empty queue is a valid real answer).
   const queueRpc = await page.send('Runtime.evaluate', {
-    expression: `chrome.runtime.sendMessage({kind:'videomind/request',id:'smoke_2',type:'queue/list',payload:undefined})`,
+    expression: `chrome.runtime.sendMessage({kind:'videoking/request',id:'smoke_2',type:'queue/list',payload:undefined})`,
     awaitPromise: true,
     returnByValue: true,
   });
@@ -268,7 +268,7 @@ try {
   // 4b. Full task lifecycle in the real worker: enqueue a model test, watch it
   // run sequentially to success, and read the real model reply from the result.
   const enqueueRpc = await page.send('Runtime.evaluate', {
-    expression: `chrome.runtime.sendMessage({kind:'videomind/request',id:'smoke_3',type:'runtime/testModel',payload:{model:'qwen2.5:1.5b'}})`,
+    expression: `chrome.runtime.sendMessage({kind:'videoking/request',id:'smoke_3',type:'runtime/testModel',payload:{model:'qwen2.5:1.5b'}})`,
     awaitPromise: true,
     returnByValue: true,
   });
@@ -278,7 +278,7 @@ try {
     let finalTask;
     for (let i = 0; i < 180; i++) {
       const q = await page.send('Runtime.evaluate', {
-        expression: `chrome.runtime.sendMessage({kind:'videomind/request',id:'smoke_poll',type:'queue/list',payload:undefined})`,
+        expression: `chrome.runtime.sendMessage({kind:'videoking/request',id:'smoke_poll',type:'queue/list',payload:undefined})`,
         awaitPromise: true,
         returnByValue: true,
       });
@@ -306,7 +306,7 @@ try {
       expression: 'chrome.runtime.getManifest().name',
       returnByValue: true,
     });
-    check('SW manifest name', manifestName.result?.value === 'VideoMind AI');
+    check('SW manifest name', manifestName.result?.value === 'videoKING AI');
     sw.close();
   }
 

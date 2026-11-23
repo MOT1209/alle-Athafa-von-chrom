@@ -1,4 +1,4 @@
-# VideoMind AI
+# videoKING AI
 
 **AI-powered Chrome extension that turns video content into searchable knowledge, learning materials, and original educational content — running entirely on local AI. Zero paid API dependency.**
 
@@ -44,7 +44,7 @@ npm run build        # produces .output/chrome-mv3
    - Windows: set system env `OLLAMA_ORIGINS=chrome-extension://*`, restart Ollama.
 2. `ollama pull qwen2.5:1.5b`
 3. Chrome → `chrome://extensions` → Developer mode → **Load unpacked** → select `ki/.output/chrome-mv3`.
-4. Click the VideoMind icon → **Test connection**.
+4. Click the videoKING icon → **Test connection**.
 
 ## Commands
 

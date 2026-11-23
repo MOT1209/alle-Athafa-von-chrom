@@ -59,7 +59,7 @@ export interface RequestMap {
 export type RequestType = keyof RequestMap;
 
 export interface RequestEnvelope<K extends RequestType = RequestType> {
-  kind: 'videomind/request';
+  kind: 'videoking/request';
   id: string;
   type: K;
   payload: RequestMap[K]['payload'];
@@ -74,8 +74,8 @@ export type BackgroundEvent =
   | { type: 'task-progress'; taskId: string; progress: TaskProgress }
   | { type: 'settings'; settings: Settings };
 
-export const EVENTS_PORT_NAME = 'videomind-events';
-export const REQUEST_KIND = 'videomind/request';
+export const EVENTS_PORT_NAME = 'videoking-events';
+export const REQUEST_KIND = 'videoking/request';
 
 export function isRequestEnvelope(value: unknown): value is RequestEnvelope {
   if (typeof value !== 'object' || value === null) return false;

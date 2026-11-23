@@ -23,7 +23,7 @@ describe('sendRequest', () => {
     expect(result).toEqual({ cancelled: true });
     expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
       expect.objectContaining({
-        kind: 'videomind/request',
+        kind: 'videoking/request',
         type: 'queue/cancel',
         payload: { taskId: 'x' },
       }),
@@ -80,7 +80,7 @@ function makeFakePort(): FakePort {
   let messageListener: ((msg: unknown) => void) | undefined;
   let disconnectListener: (() => void) | undefined;
   return {
-    name: 'videomind-events',
+    name: 'videoking-events',
     onMessage: {
       addListener: (fn) => {
         messageListener = fn;
@@ -110,7 +110,7 @@ describe('subscribeEvents', () => {
     port.emit({ type: 'nonsense' });
     port.emit(null);
     expect(received).toEqual([{ type: 'queue', tasks: [] }]);
-    expect(chrome.runtime.connect).toHaveBeenCalledWith({ name: 'videomind-events' });
+    expect(chrome.runtime.connect).toHaveBeenCalledWith({ name: 'videoking-events' });
   });
 
   it('unsubscribe disconnects the port', () => {

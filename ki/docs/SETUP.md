@@ -1,4 +1,4 @@
-# Installation & Configuration — VideoMind AI
+# Installation & Configuration — videoKING AI
 
 Target machine: Windows 11, 8 GB RAM, any GPU (or none). Everything below is free.
 
@@ -20,7 +20,7 @@ Target machine: Windows 11, 8 GB RAM, any GPU (or none). Everything below is fre
    ```powershell
    ollama pull qwen2.5:1.5b
    ```
-   ~1 GB download. On the reference machine (Pentium Silver N5030, CPU-only) a cold load takes ~20–35 s and short generations run at ~2–4 tokens/s. This is expected; VideoMind's timeouts and sequential queue are designed around it.
+   ~1 GB download. On the reference machine (Pentium Silver N5030, CPU-only) a cold load takes ~20–35 s and short generations run at ~2–4 tokens/s. This is expected; videoKING's timeouts and sequential queue are designed around it.
 
 ### Model guidance for 8 GB RAM
 
@@ -31,7 +31,7 @@ Target machine: Windows 11, 8 GB RAM, any GPU (or none). Everything below is fre
 | `llama3.2:3b` | ~2 GB | Alternative; weaker Arabic. |
 | 7B+ models | 4 GB+ | Not recommended; the memory gate blocks them by default. |
 
-Only one model is loaded at a time — VideoMind's queue guarantees sequential execution, and `keep_alive` controls when Ollama unloads it. Enable **Settings → Unload model right after each task** to free RAM immediately after every task.
+Only one model is loaded at a time — videoKING's queue guarantees sequential execution, and `keep_alive` controls when Ollama unloads it. Enable **Settings → Unload model right after each task** to free RAM immediately after every task.
 
 ## 2. Build & load the extension
 
@@ -45,7 +45,7 @@ npm run build
 1. Open `chrome://extensions`.
 2. Enable **Developer mode** (top right).
 3. **Load unpacked** → select `ki\.output\chrome-mv3`.
-4. Pin the VideoMind AI icon, open it, press **Test connection**. You should see the Ollama version, model count, and latency.
+4. Pin the videoKING AI icon, open it, press **Test connection**. You should see the Ollama version, model count, and latency.
 
 Development mode: `npm run dev` (WXT hot reload; load the `.output/chrome-mv3-dev` folder it prints).
 

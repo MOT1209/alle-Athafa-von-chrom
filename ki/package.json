@@ -1,8 +1,8 @@
 {
-  "name": "videomind-ai",
+  "name": "videoking-ai",
   "private": true,
   "version": "0.1.0",
-  "description": "VideoMind AI - local-first AI video knowledge extension for Chrome (MV3). Zero paid API dependency.",
+  "description": "videoKING AI - local-first AI video knowledge extension for Chrome (MV3). Zero paid API dependency.",
   "type": "module",
   "scripts": {
     "dev": "wxt",

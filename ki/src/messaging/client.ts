@@ -20,7 +20,7 @@ export async function sendRequest<K extends RequestType>(
   payload: RequestMap[K]['payload'],
 ): Promise<RequestMap[K]['response']> {
   const envelope: RequestEnvelope<K> = {
-    kind: 'videomind/request',
+    kind: 'videoking/request',
     id: newId('req'),
     type,
     payload,
@@ -31,7 +31,7 @@ export async function sendRequest<K extends RequestType>(
   } catch (err) {
     throw new AppError(
       'NETWORK',
-      'Cannot reach the VideoMind background worker',
+      'Cannot reach the videoKING background worker',
       {
         hint: 'Reload the extension from chrome://extensions and try again.',
         cause: err,

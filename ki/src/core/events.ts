@@ -30,7 +30,7 @@ export class Emitter<Events extends Record<string, unknown>> {
       try {
         (listener as Listener<Events[K]>)(payload);
       } catch (err) {
-        console.error('[videomind] event listener failed', event, err);
+        console.error('[videoking] event listener failed', event, err);
       }
     }
   }

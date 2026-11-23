@@ -27,8 +27,8 @@ import { Emitter } from '../core/events';
  *    cleared when the queue drains.
  */
 
-const QUEUE_KEY = 'videomind.queue.v1';
-const KEEPALIVE_ALARM = 'videomind-keepalive';
+const QUEUE_KEY = 'videoking.queue.v1';
+const KEEPALIVE_ALARM = 'videoking-keepalive';
 
 export function bootstrapBackground(): void {
   const localStore = new ChromeStore(chrome.storage.local);
@@ -182,7 +182,7 @@ export function bootstrapBackground(): void {
   chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name !== KEEPALIVE_ALARM) return;
     // Touch session storage so the worker stays alive while tasks run.
-    void sessionStore.set('videomind.lastAlive', Date.now()).catch(() => {});
+    void sessionStore.set('videoking.lastAlive', Date.now()).catch(() => {});
     if (!queue.isBusy()) void chrome.alarms.clear(KEEPALIVE_ALARM);
   });
 }

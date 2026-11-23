@@ -12,7 +12,7 @@ export function isLanguage(value: unknown): value is Language {
 }
 
 const en = {
-  'app.title': 'VideoMind AI',
+  'app.title': 'videoKING AI',
   'app.tagline': 'Local-first video knowledge',
   'app.language': 'العربية',
   'app.phaseNote':
@@ -91,7 +91,7 @@ const en = {
 export type MessageKey = keyof typeof en;
 
 const ar: Record<MessageKey, string> = {
-  'app.title': 'VideoMind AI',
+  'app.title': 'videoKING AI',
   'app.tagline': 'معرفة الفيديو محليًا أولًا',
   'app.language': 'English',
   'app.phaseNote':

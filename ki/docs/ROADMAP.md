@@ -1,4 +1,4 @@
-# Roadmap — VideoMind AI (target 1.0.0)
+# Roadmap — videoKING AI (target 1.0.0)
 
 Rule: **no phase starts before the previous one passes its acceptance criteria**
 (verify gate + real workflow evidence, not just compilation).

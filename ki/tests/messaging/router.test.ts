@@ -5,7 +5,7 @@ import type { RequestEnvelope } from '../../src/messaging/protocol';
 
 function envelope(type: string, payload?: unknown): RequestEnvelope {
   return {
-    kind: 'videomind/request',
+    kind: 'videoking/request',
     id: 'req_1',
     type: type as RequestEnvelope['type'],
     payload: payload as never,
@@ -81,13 +81,13 @@ describe('createRouter', () => {
     if (response && !response.ok) expect(response.error.code).toBe('INTERNAL');
   });
 
-  it('ignores messages that are not VideoMind envelopes', async () => {
+  it('ignores messages that are not videoKING envelopes', async () => {
     const router = createRouter(baseHandlers());
     expect(await router(undefined)).toBeUndefined();
     expect(await router({ kind: 'other' })).toBeUndefined();
     expect(await router('text')).toBeUndefined();
     expect(
-      await router({ kind: 'videomind/request', id: 'x', type: 'bogus/type' }),
+      await router({ kind: 'videoking/request', id: 'x', type: 'bogus/type' }),
     ).toBeUndefined();
   });
 

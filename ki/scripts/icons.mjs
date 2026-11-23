@@ -1,6 +1,6 @@
 /**
  * Deterministic icon generator (no dependencies).
- * Draws the VideoMind mark: dark rounded square, indigo->cyan play triangle,
+ * Draws the videoKING mark: dark rounded square, indigo->cyan play triangle,
  * neural spark nodes. Renders at 4x supersampling, boxes down to target size.
  * Output bytes are identical across runs.
  */

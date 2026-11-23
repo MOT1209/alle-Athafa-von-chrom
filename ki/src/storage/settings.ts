@@ -48,7 +48,7 @@ export interface SettingsPatch {
   memory?: Partial<MemorySettings>;
 }
 
-export const SETTINGS_KEY = 'videomind.settings.v1';
+export const SETTINGS_KEY = 'videoking.settings.v1';
 
 export const DEFAULT_SETTINGS: Settings = {
   schemaVersion: 1,
