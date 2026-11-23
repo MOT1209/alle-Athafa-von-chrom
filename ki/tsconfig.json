@@ -1,0 +1,23 @@
+{
+  "extends": "./.wxt/tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "jsx": "react-jsx",
+    "types": ["chrome", "node"],
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "entrypoints",
+    "src",
+    "tests",
+    "wxt.config.ts",
+    "vitest.config.ts",
+    ".wxt/wxt.d.ts"
+  ],
+  "exclude": ["node_modules", ".output", "coverage"]
+}
