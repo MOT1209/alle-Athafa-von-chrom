@@ -25,6 +25,14 @@ function baseHandlers(overrides: Partial<Handlers> = {}): Handlers {
     'queue/list': () => [],
     'queue/cancel': () => ({ cancelled: true }),
     'queue/retry': () => ({}) as never,
+    'consent/get': () => ({ version: 1, youtubeCaptions: false }),
+    'consent/grant': () => ({ version: 1, youtubeCaptions: true }),
+    'consent/revoke': () => ({ version: 1, youtubeCaptions: false }),
+    'youtube/activeVideo': () => ({ supported: false, reason: 'no-active-tab' }) as never,
+    'youtube/capture': () => ({ record: {} }) as never,
+    'videos/list': () => [],
+    'videos/get': () => ({ record: null }),
+    'videos/remove': () => ({ removed: true }),
     ...overrides,
   };
   return handlers;

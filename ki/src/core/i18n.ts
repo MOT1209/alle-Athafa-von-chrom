@@ -16,7 +16,7 @@ const en = {
   'app.tagline': 'Local-first video knowledge',
   'app.language': 'العربية',
   'app.phaseNote':
-    'Phase 1: Local AI runtime. Video, transcript and learning modules arrive in the next phases.',
+    'Phases 1-2: local AI runtime + YouTube transcript capture. Summaries, chat and learning tools arrive next.',
 
   'common.cancel': 'Cancel',
   'common.retry': 'Retry',
@@ -86,6 +86,41 @@ const en = {
   'error.title': 'Something went wrong',
 
   'testModel.reply': 'Model replied: {reply}',
+
+  'tab.runtime': 'Runtime',
+  'tab.video': 'Video',
+  'tab.library': 'Library',
+
+  'video.notYoutube': 'Open a YouTube video page, then refresh.',
+  'video.noActiveTab': 'No active tab found.',
+  'video.checking': 'Checking the current tab…',
+  'video.refresh': 'Re-check tab',
+  'video.consentTitle': 'Consent required',
+  'video.consentBody':
+    'Capturing reads the caption track YouTube itself shows for this video (the official transcript). The text is stored locally on your device. No video or audio is downloaded, nothing is published, and nothing is sent to external servers.',
+  'video.grant': 'I agree — enable capture',
+  'video.revoke': 'Revoke consent',
+  'video.consentGranted': 'Capture consent granted',
+  'video.capture': 'Capture transcript',
+  'video.captured': 'Transcript saved: {count} segments',
+  'video.viewInLibrary': 'Open in library',
+  'video.noCaptions': 'This video has no accessible captions. Local audio transcription (Whisper) arrives in Phase 7.',
+  'video.captureFailed': 'Capture failed in this session. YouTube may limit automated access; try a normal window or another video.',
+  'video.language': 'Language',
+  'video.duration': 'Duration',
+  'video.channel': 'Channel',
+  'video.segments': '{count} segments',
+  'video.tracks': 'Caption tracks',
+  'video.trackManual': 'manual',
+  'video.trackAsr': 'auto',
+  'video.preferredLanguage': 'Preferred caption language (optional)',
+
+  'library.empty': 'No captured videos yet. Capture one from the Video tab.',
+  'library.open': 'Open',
+  'library.deleteConfirm': 'Delete "{title}" and its transcript from local storage?',
+  'library.back': 'Back to list',
+  'library.capturedAt': 'Captured',
+  'library.transcript': 'Transcript',
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -95,7 +130,7 @@ const ar: Record<MessageKey, string> = {
   'app.tagline': 'معرفة الفيديو محليًا أولًا',
   'app.language': 'English',
   'app.phaseNote':
-    'المرحلة 1: بيئة الذكاء الاصطناعي المحلية. وحدات الفيديو والنصوص والتعلم تصل في المراحل التالية.',
+    'المرحلتان 1-2: بيئة الذكاء الاصطناعي المحلية + التقاط نصوص YouTube. التلخيصات والمحادثة وأدوات التعلم تصل تاليًا.',
 
   'common.cancel': 'إلغاء',
   'common.retry': 'إعادة المحاولة',
@@ -165,6 +200,41 @@ const ar: Record<MessageKey, string> = {
   'error.title': 'حدث خطأ ما',
 
   'testModel.reply': 'رد النموذج: {reply}',
+
+  'tab.runtime': 'البيئة',
+  'tab.video': 'الفيديو',
+  'tab.library': 'المكتبة',
+
+  'video.notYoutube': 'افتح صفحة فيديو على YouTube ثم حدّث.',
+  'video.noActiveTab': 'لا توجد علامة تبويب نشطة.',
+  'video.checking': 'جارٍ فحص علامة التبويب الحالية…',
+  'video.refresh': 'إعادة فحص التبويب',
+  'video.consentTitle': 'الموافقة مطلوبة',
+  'video.consentBody':
+    'يلتقط النص من مسار الترجمة الذي يعرضه YouTube نفسه لهذا الفيديو (النص الرسمي). يُخزَّن النص محليًا على جهازك. لا يُنزَّل أي فيديو أو صوت، ولا يُنشر شيء، ولا يُرسل شيء إلى خوادم خارجية.',
+  'video.grant': 'أوافق — تفعيل الالتقاط',
+  'video.revoke': 'سحب الموافقة',
+  'video.consentGranted': 'تم منح موافقة الالتقاط',
+  'video.capture': 'التقاط النص',
+  'video.captured': 'تم حفظ النص: {count} مقطعًا',
+  'video.viewInLibrary': 'فتح في المكتبة',
+  'video.noCaptions': 'لا توجد ترجمات متاحة لهذا الفيديو. التفريغ الصوتي المحلي (Whisper) يصل في المرحلة 7.',
+  'video.captureFailed': 'فشل الالتقاط في هذه الجلسة. قد يقيّد YouTube الوصول الآلي؛ جرّب نافذة عادية أو فيديو آخر.',
+  'video.language': 'اللغة',
+  'video.duration': 'المدة',
+  'video.channel': 'القناة',
+  'video.segments': '{count} مقطعًا',
+  'video.tracks': 'مسارات الترجمة',
+  'video.trackManual': 'يدوي',
+  'video.trackAsr': 'تلقائي',
+  'video.preferredLanguage': 'لغة الترجمة المفضلة (اختياري)',
+
+  'library.empty': 'لا فيديوهات ملتقطة بعد. التقط واحدًا من تبويب الفيديو.',
+  'library.open': 'فتح',
+  'library.deleteConfirm': 'حذف "{title}" ونصه من التخزين المحلي؟',
+  'library.back': 'عودة إلى القائمة',
+  'library.capturedAt': 'التُقط في',
+  'library.transcript': 'النص',
 };
 
 const dictionaries: Record<Language, Record<MessageKey, string>> = {

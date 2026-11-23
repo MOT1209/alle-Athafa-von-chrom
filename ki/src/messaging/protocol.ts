@@ -3,6 +3,10 @@ import type { TaskProgress, TaskView } from '../ai/queue';
 import type { SerializedError } from '../core/errors';
 import type { Language } from '../core/i18n';
 import type { Settings, SettingsPatch } from '../storage/settings';
+import type { ConsentScope, ConsentState } from '../capture/consent';
+import type { ActiveVideoResult } from '../capture/service';
+import type { VideoRecord, VideoSummary } from '../capture/videos';
+import type { YouTubeVideoInfo } from '../youtube/extract';
 
 /**
  * Typed message protocol between UI pages and the background service worker.
@@ -54,6 +58,17 @@ export interface RequestMap {
   'queue/list': { payload: undefined; response: TaskView[] };
   'queue/cancel': { payload: { taskId: string }; response: { cancelled: boolean } };
   'queue/retry': { payload: { taskId: string }; response: TaskView };
+  'consent/get': { payload: undefined; response: ConsentState };
+  'consent/grant': { payload: { scope: ConsentScope }; response: ConsentState };
+  'consent/revoke': { payload: { scope: ConsentScope }; response: ConsentState };
+  'youtube/activeVideo': { payload: undefined; response: ActiveVideoResult };
+  'youtube/capture': {
+    payload: { tabId: number; preferredLanguage?: string };
+    response: { record: VideoSummary };
+  };
+  'videos/list': { payload: undefined; response: VideoSummary[] };
+  'videos/get': { payload: { id: string }; response: { record: VideoRecord | null } };
+  'videos/remove': { payload: { id: string }; response: { removed: boolean } };
 }
 
 export type RequestType = keyof RequestMap;
@@ -99,6 +114,14 @@ const REQUEST_TYPES: ReadonlySet<string> = new Set<string>([
   'queue/list',
   'queue/cancel',
   'queue/retry',
+  'consent/get',
+  'consent/grant',
+  'consent/revoke',
+  'youtube/activeVideo',
+  'youtube/capture',
+  'videos/list',
+  'videos/get',
+  'videos/remove',
 ]);
 
 export function isRequestType(value: unknown): value is RequestType {
@@ -137,3 +160,4 @@ export function isBackgroundEvent(value: unknown): value is BackgroundEvent {
 }
 
 export type { Language, Settings, SettingsPatch };
+export type { YouTubeVideoInfo };

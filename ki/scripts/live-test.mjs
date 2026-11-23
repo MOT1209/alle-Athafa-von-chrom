@@ -15,7 +15,7 @@ const result = spawnSync(
   {
     cwd: root,
     stdio: 'inherit',
-    env: { ...process.env, VM_LIVE_OLLAMA: '1' },
+    env: { ...process.env, VM_LIVE_OLLAMA: '1', VM_LIVE_YT: '1' },
   },
 );
 process.exit(result.status ?? 1);

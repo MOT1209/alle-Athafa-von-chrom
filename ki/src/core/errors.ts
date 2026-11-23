@@ -16,6 +16,9 @@ export const ERROR_CODES = [
   'STORAGE',
   'QUEUE_FULL',
   'INVALID_INPUT',
+  'CONSENT_REQUIRED',
+  'CAPTURE_UNAVAILABLE',
+  'PAGE_UNREACHABLE',
   'INTERNAL',
 ] as const;
 

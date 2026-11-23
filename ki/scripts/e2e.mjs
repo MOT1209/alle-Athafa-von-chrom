@@ -73,7 +73,20 @@ check(
     /^http:\/\/(localhost|127\.0\.0\.1)/.test(h),
   ),
 );
-check('no content scripts yet (phase 1)', !manifest.content_scripts);
+const cs = manifest.content_scripts ?? [];
+check('content scripts declared (phase 2)', cs.length > 0);
+check(
+  'content scripts restricted to YouTube',
+  cs.every((entry) =>
+    (entry.matches ?? []).every((m) => /^\*:\/\/\*\.youtube\.com\/\*$/.test(m)),
+  ),
+  JSON.stringify(cs.map((e) => e.matches)),
+);
+for (const entry of cs) {
+  for (const js of entry.js ?? []) {
+    check(`content script file exists: ${js}`, existsSync(join(outDir, js)));
+  }
+}
 check(
   'no externally_connectable',
   manifest.externally_connectable === undefined,

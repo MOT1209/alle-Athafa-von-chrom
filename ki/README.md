@@ -12,7 +12,7 @@
 | Module | Status |
 |---|---|
 | 9. Local AI Runtime Management | ✅ Complete: Ollama provider, sequential task queue, memory budget, model management UI (EN/AR) |
-| 1. Browser & YouTube Integration | ⏳ Phase 2 |
+| 1. Browser & YouTube Integration | ✅ Complete: consent-gated transcript capture (3 real sources), local knowledge records, library viewer (EN/AR) |
 | 2. Audio Processing & Transcription | ⏳ Phase 7 (Whisper + FFmpeg contracts already defined) |
 | 3. AI Video Summarization | ⏳ Phase 3 |
 | 4. Chat With Video | ⏳ Phase 4 |
@@ -25,7 +25,9 @@ Nothing is simulated: every button in the popup performs a real operation agains
 
 ## What works today
 
-- **Runtime dashboard** (popup, English/العربية with RTL): connection test with latency, Ollama version, installed models, models currently loaded in memory/VRAM, memory budget.
+- **YouTube transcript capture** (Video tab): explicit consent gate, then one click captures the video's captions from three real sources (official transcript API → player caption track → official transcript panel UI). Stored locally with timestamps; honest typed errors when a video has no captions or the platform limits the session.
+- **Library** (Library tab): captured videos with metadata, full timestamped transcript viewer, delete. All on-device.
+- **Runtime dashboard** (Runtime tab, English/العربية with RTL): connection test with latency, Ollama version, installed models, models currently loaded in memory/VRAM, memory budget.
 - **Model management**: pull any model with live progress + cancel, delete (blocked while a task uses it), choose the default model, run a real tiny generation to prove a model works.
 - **Sequential task queue**: one AI task at a time (hardware constraint), cancellation via AbortSignal, exponential-backoff retries, typed failures, bounded history, honest recovery after service-worker restarts.
 - **Memory-aware admission**: estimates model RAM need (file size × 1.4 + 256 MB) against `navigator.deviceMemory` minus a configurable system reserve; blocks oversize tasks by default, warns when device memory is unknown.
@@ -45,6 +47,7 @@ npm run build        # produces .output/chrome-mv3
 2. `ollama pull qwen2.5:1.5b`
 3. Chrome → `chrome://extensions` → Developer mode → **Load unpacked** → select `ki/.output/chrome-mv3`.
 4. Click the videoKING icon → **Test connection**.
+5. Open any YouTube video with captions → popup → **Video** tab → grant consent → **Capture transcript** → view it in the **Library** tab.
 
 ## Commands
 

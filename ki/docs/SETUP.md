@@ -57,7 +57,30 @@ npm run test:live   # real generation against your Ollama (needs ollama serve)
 npm run smoke       # loads the extension into real Chrome and runs the full workflow
 ```
 
-## 4. Troubleshooting
+## 4. Capturing YouTube transcripts
+
+1. Open a YouTube video that has captions (most videos do; the Video tab lists
+   the available caption tracks and languages).
+2. Open the videoKING popup → **Video** tab.
+3. First time only: read the consent notice and press **I agree — enable
+   capture**. It explains exactly what happens: the caption text YouTube
+   itself shows is read and stored locally; no video/audio download, no
+   publishing, no external servers.
+4. Press **Capture transcript**. The extension tries, in order: the official
+   transcript API, the player's caption track, and the official transcript
+   panel. The result is saved with timestamps.
+5. **Library** tab → open the video → read/search the timestamped transcript;
+   delete anytime. Revoking consent (Video tab) immediately blocks further
+   captures.
+
+Notes:
+- Only YouTube is supported in this phase. Other sites: user-provided files
+  arrive with Phase 7. Nothing is captured automatically — every capture is
+  an explicit user action after consent.
+- If YouTube limits a session (rare, mostly automated/headless windows), the
+  extension shows an honest error instead of fake data. Try a normal window.
+
+## 5. Troubleshooting
 
 | Symptom | Cause / fix |
 |---|---|
@@ -69,7 +92,7 @@ npm run smoke       # loads the extension into real Chrome and runs the full wor
 | Task stuck after browser restart | MV3 service workers can be killed; interrupted tasks are marked failed honestly. Press the action again (or Retry where offered). |
 | Popup shows old data after SW restart | It reconnects automatically within ~1 s; press ⟳ to force refresh. |
 
-## 5. Later phases (not required today)
+## 6. Later phases (not required today)
 
 - **Whisper Base Multilingual (STT)** — Phase 7. Planned: local `whisper.cpp` server (CPU) behind the existing `SttProvider` contract; FFmpeg 8.x is already installed on the reference machine for audio extraction.
 - **Piper TTS** — Phase 8 (Arabic Kids Studio). Planned: local Piper HTTP server behind the existing `TtsProvider` contract, Arabic voice (e.g. `ar_JO-kareem-medium`).

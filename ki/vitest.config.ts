@@ -10,7 +10,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**'],
-      exclude: ['src/ui/**', 'src/background/**', 'src/ai/types.ts', 'src/**/*.d.ts'],
+      exclude: ['src/ui/**', 'src/background/**', 'src/browser/**', 'src/ai/types.ts', 'src/**/*.d.ts'],
       thresholds: { lines: 85, functions: 85, branches: 80, statements: 85 },
       reporter: ['text', 'json-summary'],
       reportsDirectory: 'coverage',

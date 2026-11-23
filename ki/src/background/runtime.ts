@@ -15,6 +15,10 @@ import {
   type BackgroundEvent,
 } from '../messaging/protocol';
 import { Emitter } from '../core/events';
+import { ConsentStore } from '../capture/consent';
+import { VideoRepository } from '../capture/videos';
+import { CaptureService } from '../capture/service';
+import { ChromeTabBridge } from '../browser/tabs';
 
 /**
  * Background service-worker composition root. Thin wiring only: all logic
@@ -97,6 +101,14 @@ export function bootstrapBackground(): void {
       }),
   });
 
+  const consentStore = new ConsentStore(localStore);
+  const videoRepository = new VideoRepository(localStore);
+  const captureService = new CaptureService({
+    consent: consentStore,
+    videos: videoRepository,
+    tabs: new ChromeTabBridge(),
+  });
+
   const applySettings = (settings: Settings): void => {
     cachedSettings = settings;
     queue.configure({
@@ -152,6 +164,19 @@ export function bootstrapBackground(): void {
       cancelled: queue.cancel(payload.taskId),
     }),
     'queue/retry': (payload) => queue.retry(payload.taskId),
+    'consent/get': () => consentStore.get(),
+    'consent/grant': (payload) => consentStore.grant(payload.scope),
+    'consent/revoke': (payload) => consentStore.revoke(payload.scope),
+    'youtube/activeVideo': () => captureService.activeVideo(),
+    'youtube/capture': (payload) =>
+      captureService.capture(payload.tabId, payload.preferredLanguage),
+    'videos/list': () => videoRepository.list(),
+    'videos/get': async (payload) => ({
+      record: (await videoRepository.get(payload.id)) ?? null,
+    }),
+    'videos/remove': async (payload) => ({
+      removed: await videoRepository.remove(payload.id),
+    }),
   });
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

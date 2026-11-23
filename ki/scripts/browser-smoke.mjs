@@ -300,17 +300,110 @@ try {
     (t) => t.type === 'service_worker' && t.url.includes(extId),
   );
   check('extension service worker running', Boolean(swTarget));
+  let sw;
   if (swTarget) {
-    const sw = await cdpConnect(swTarget.webSocketDebuggerUrl);
+    sw = await cdpConnect(swTarget.webSocketDebuggerUrl);
     const manifestName = await sw.send('Runtime.evaluate', {
       expression: 'chrome.runtime.getManifest().name',
       returnByValue: true,
     });
     check('SW manifest name', manifestName.result?.value === 'videoKING AI');
+  }
+
+  // 6. YouTube workflow (phase 2): content script answers on a real watch
+  // page; consent gate enforced in the real worker; capture returns either a
+  // real transcript or an honest typed unavailability (YouTube degrades
+  // automated sessions — both outcomes are correct behavior).
+  if (sw) {
+    // Pre-set YouTube consent cookie (EU) so the watch page is not redirected.
+    await page.send('Network.enable');
+    await page.send('Network.setCookie', {
+      name: 'SOCS',
+      value: 'CAISNQgDEitib3FfaWRlbnRpdHlmcm9udGVuZHVpc2VydmVyXzIwMjMwODI5LjA3X3AxGgJlbiACGgYIgLC_pwY',
+      domain: '.youtube.com',
+      path: '/',
+    });
+    const ytTab = await fetch(
+      `http://127.0.0.1:${PORT}/json/new?https://www.youtube.com/watch?v=jNQXAC9IVRw&hl=en`,
+      { method: 'PUT' },
+    ).then((r) => r.json());
+    await sleep(10000);
+
+    // No "tabs" permission by design: query without url filter, then ask each
+    // tab — only the YouTube content script answers page/videoInfo.
+    const infoRpc = await sw.send('Runtime.evaluate', {
+      expression: `(async () => {
+        const tabs = await chrome.tabs.query({});
+        for (const tab of tabs) {
+          if (tab.id === undefined) continue;
+          try {
+            const info = await chrome.tabs.sendMessage(tab.id, { kind: 'videoking/page-request', type: 'page/videoInfo', payload: undefined });
+            if (info && info.isVideoPage) return { found: true, tabId: tab.id, info };
+          } catch { /* not a YouTube tab */ }
+        }
+        return { found: false };
+      })()`,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    const infoValue = infoRpc.result?.value;
+    check('content script answers on YouTube', infoValue?.found === true && infoValue?.info?.isVideoPage === true, JSON.stringify(infoValue)?.slice(0, 200));
+    check('real video metadata extracted', infoValue?.info?.video?.videoId === 'jNQXAC9IVRw', JSON.stringify(infoValue?.info?.video)?.slice(0, 200));
+
+    // Capture WITHOUT consent must be refused (fail-closed) in the real worker.
+    const noConsent = await page.send('Runtime.evaluate', {
+      expression: `chrome.runtime.sendMessage({kind:'videoking/request',id:'smoke_nc',type:'youtube/capture',payload:{tabId:${infoValue?.tabId ?? 0}}})`,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    check('capture refused without consent', noConsent.result?.value?.ok === false && noConsent.result?.value?.error?.code === 'CONSENT_REQUIRED', JSON.stringify(noConsent.result?.value)?.slice(0, 200));
+
+    // Grant consent, then capture.
+    await page.send('Runtime.evaluate', {
+      expression: `chrome.runtime.sendMessage({kind:'videoking/request',id:'smoke_grant',type:'consent/grant',payload:{scope:'youtubeCaptions'}})`,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    const captureRpc = await page.send('Runtime.evaluate', {
+      expression: `chrome.runtime.sendMessage({kind:'videoking/request',id:'smoke_cap',type:'youtube/capture',payload:{tabId:${infoValue?.tabId ?? 0}}})`,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    const captureValue = captureRpc.result?.value;
+    const capturedOk = captureValue?.ok === true && captureValue?.data?.record?.segmentCount > 0;
+    const honestFail = captureValue?.ok === false && captureValue?.error?.code === 'CAPTURE_UNAVAILABLE';
+    check('capture returns real transcript OR honest typed unavailability', capturedOk || honestFail, JSON.stringify(captureValue)?.slice(0, 250));
+    if (capturedOk) {
+      console.log(`  ..  LIVE CAPTURE: ${captureValue.data.record.segmentCount} segments stored (${captureValue.data.record.id})`);
+      const libraryRpc = await page.send('Runtime.evaluate', {
+        expression: `chrome.runtime.sendMessage({kind:'videoking/request',id:'smoke_lib',type:'videos/list',payload:undefined})`,
+        awaitPromise: true,
+        returnByValue: true,
+      });
+      check('captured video visible in library', (libraryRpc.result?.value?.data ?? []).some((v) => v.id === captureValue.data.record.id));
+    } else {
+      console.log('  ..  YouTube limited this automated session (expected headless); typed unavailability surfaced honestly. Manual verification: docs/reports/PHASE-2.md');
+    }
+
+    // Revoke consent → capture must be refused again.
+    await page.send('Runtime.evaluate', {
+      expression: `chrome.runtime.sendMessage({kind:'videoking/request',id:'smoke_revoke',type:'consent/revoke',payload:{scope:'youtubeCaptions'}})`,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    const afterRevoke = await page.send('Runtime.evaluate', {
+      expression: `chrome.runtime.sendMessage({kind:'videoking/request',id:'smoke_nc2',type:'youtube/capture',payload:{tabId:${infoValue?.tabId ?? 0}}})`,
+      awaitPromise: true,
+      returnByValue: true,
+    });
+    check('revoking consent stops capture', afterRevoke.result?.value?.ok === false && afterRevoke.result?.value?.error?.code === 'CONSENT_REQUIRED');
+
+    // Close the YouTube tab to free memory.
+    await fetch(`http://127.0.0.1:${PORT}/json/close/${ytTab.id}`).catch(() => {});
     sw.close();
   }
 
-  // 6. No page exceptions or console errors (favicon noise filtered).
+  // 7. No page exceptions or console errors (favicon noise filtered).
   const exceptions = page.events.filter((e) => e.method === 'Runtime.exceptionThrown');
   const consoleErrors = page.events.filter(
     (e) =>
