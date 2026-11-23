@@ -454,6 +454,7 @@ export class OllamaProvider implements LlmProvider {
       method: 'POST',
       body,
       signal: options?.signal,
+      timeoutMs: options?.timeoutMs,
     });
     return this.parseChatResult(data, model);
   }
@@ -478,6 +479,7 @@ export class OllamaProvider implements LlmProvider {
       method: 'POST',
       body,
       signal: options.signal,
+      timeoutMs: options.timeoutMs,
     });
     try {
       let content = '';

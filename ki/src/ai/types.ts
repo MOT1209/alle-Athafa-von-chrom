@@ -43,6 +43,8 @@ export interface GenerationOptions {
   numPredict?: number;
   keepAlive?: string;
   format?: 'json';
+  /** Per-call transport ceiling. Long CPU-bound calls can exceed the provider default. */
+  timeoutMs?: number;
   signal?: AbortSignal;
 }
 

@@ -2,19 +2,19 @@
 
 **AI-powered Chrome extension that turns video content into searchable knowledge, learning materials, and original educational content — running entirely on local AI. Zero paid API dependency.**
 
-- Version: 0.1.0 (Phase 1 complete — target 1.0.0 after all phases)
+- Version: 0.1.0 (Phases 1–3 complete — target 1.0.0 after all phases)
 - Platform: Chrome Manifest V3 (minimum Chrome 120)
 - Stack: WXT · React 19 · TypeScript (strict) · Tailwind CSS 4 · Ollama · Qwen 2.5 1.5B
 - Target hardware: Windows 11, 8 GB RAM, **no GPU assumption** (CPU fallback is the default path)
 
-## Current status (Phase 1 — Foundation & Local AI Runtime)
+## Current status (Phases 1–3)
 
 | Module | Status |
 |---|---|
 | 9. Local AI Runtime Management | ✅ Complete: Ollama provider, sequential task queue, memory budget, model management UI (EN/AR) |
 | 1. Browser & YouTube Integration | ✅ Complete: consent-gated transcript capture (3 real sources), local knowledge records, library viewer (EN/AR) |
 | 2. Audio Processing & Transcription | ⏳ Phase 7 (Whisper + FFmpeg contracts already defined) |
-| 3. AI Video Summarization | ⏳ Phase 3 |
+| 3. AI Video Summarization | ✅ Complete: chunked map-reduce through the sequential queue, schema-validated overview / timestamped key points / chapters, persistent Summary tab (EN/AR) |
 | 4. Chat With Video | ⏳ Phase 4 |
 | 5. Translation & Transcript Management | ⏳ Phase 5 |
 | 6. AI Learning Tools | ⏳ Phase 6 |
@@ -27,6 +27,7 @@ Nothing is simulated: every button in the popup performs a real operation agains
 
 - **YouTube transcript capture** (Video tab): explicit consent gate, then one click captures the video's captions from three real sources (official transcript API → player caption track → official transcript panel UI). Stored locally with timestamps; honest typed errors when a video has no captions or the platform limits the session.
 - **Library** (Library tab): captured videos with metadata, full timestamped transcript viewer, delete. All on-device.
+- **AI summaries** (Summary tab): one click turns a captured transcript into a structured summary — overview, timestamped key points, and chapters — using chunked map-reduce over the local model, one call at a time. Output is schema-validated before it is shown or stored; summaries persist across restarts, reopen offline, and can be cancelled mid-run.
 - **Runtime dashboard** (Runtime tab, English/العربية with RTL): connection test with latency, Ollama version, installed models, models currently loaded in memory/VRAM, memory budget.
 - **Model management**: pull any model with live progress + cancel, delete (blocked while a task uses it), choose the default model, run a real tiny generation to prove a model works.
 - **Sequential task queue**: one AI task at a time (hardware constraint), cancellation via AbortSignal, exponential-backoff retries, typed failures, bounded history, honest recovery after service-worker restarts.
@@ -48,6 +49,7 @@ npm run build        # produces .output/chrome-mv3
 3. Chrome → `chrome://extensions` → Developer mode → **Load unpacked** → select `ki/.output/chrome-mv3`.
 4. Click the videoKING icon → **Test connection**.
 5. Open any YouTube video with captions → popup → **Video** tab → grant consent → **Capture transcript** → view it in the **Library** tab.
+6. Popup → **Summary** tab → **Generate summary** for a captured video. The first run loads the model; progress and cancel are shown live. Summaries follow the transcript language (English or Arabic).
 
 ## Commands
 
@@ -56,12 +58,13 @@ npm run typecheck      # tsc --noEmit (strict)
 npm test               # unit tests (vitest)
 npm run test:coverage  # coverage with enforced thresholds (85/80/85/85)
 npm run build          # production MV3 build
-npm run e2e            # 42 package-integrity / Web Store readiness checks
+npm run e2e            # 49 package-integrity / Web Store readiness checks
 npm run verify         # typecheck + tests + build + e2e (the phase gate)
 npm run smoke          # loads the built extension into real Chrome via CDP and
                        # exercises the full user workflow (needs Chrome; Ollama
                        # running makes it a live end-to-end proof)
 npm run test:live      # live integration tests against a running Ollama
+npm run test:live:summary  # live 10+ minute map-reduce acceptance (real model)
 npm run dev            # WXT dev mode with HMR
 ```
 
@@ -71,6 +74,8 @@ npm run dev            # WXT dev mode with HMR
 - `docs/ARCHITECTURE.md` — layers, contracts, decisions, hardware-constraint design
 - `docs/ROADMAP.md` — all 9 phases with acceptance criteria
 - `docs/reports/PHASE-1.md` — Phase 1 completion report with evidence
+- `docs/reports/PHASE-2.md` — Phase 2 (YouTube capture) report with evidence
+- `docs/reports/PHASE-3.md` — Phase 3 (summarization) report with evidence and limits
 
 ## Principles (non-negotiable)
 

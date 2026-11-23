@@ -92,6 +92,24 @@ describe('TaskQueue — execution', () => {
     );
   });
 
+  it('copies task metadata into views without sharing the object', async () => {
+    const { queue } = makeQueue();
+    const meta = { videoRecordId: 'yt_a' };
+    const view = queue.enqueue({
+      kind: 'video-summary',
+      label: 'Summarize',
+      meta,
+      run: async () => 'done',
+    });
+    expect(view.meta).toEqual({ videoRecordId: 'yt_a' });
+    meta.videoRecordId = 'mutated';
+    expect(queue.get(view.id)?.meta).toEqual({ videoRecordId: 'yt_a' });
+    await vi.waitFor(() => {
+      expect(queue.get(view.id)?.status).toBe('succeeded');
+    });
+    expect(queue.get(view.id)?.meta).toEqual({ videoRecordId: 'yt_a' });
+  });
+
   it('reports progress through events and the view', async () => {
     const { queue } = makeQueue();
     const progressEvents: Array<{ taskId: string; progress: { percent?: number } }> = [];

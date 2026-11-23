@@ -39,18 +39,18 @@ Acceptance (met — see docs/reports/PHASE-2.md):
       automated sessions are degraded by YouTube — honest typed unavailability
       is the verified correct behavior there, manual evidence documented)
 
-## Phase 3 — AI Video Summarization (Module 3)
+## Phase 3 — AI Video Summarization (Module 3) ✅ COMPLETE
 
 Scope: chunked map-reduce summarization over transcripts through the existing
 queue · structured output (overview, key points with timestamps, chapters)
 validated against a schema · summary storage + UI · cancellation mid-summary ·
 memory-aware chunk sizing for 1.5B/4096 ctx.
 
-Acceptance:
-- [ ] A 10+ minute transcript produces a structured summary with timestamped
+Acceptance (met — see docs/reports/PHASE-3.md; quality limits documented):
+- [x] A 10+ minute transcript produces a structured summary with timestamped
       key points on the reference machine within the sequential queue
-- [ ] Invalid model output is rejected/retried, never shown as fact
-- [ ] Summary persists and reopens; cancel works mid-run
+- [x] Invalid model output is rejected/retried, never shown as fact
+- [x] Summary persists and reopens; cancel works mid-run
 
 ## Phase 4 — Chat With Video (Module 4)
 

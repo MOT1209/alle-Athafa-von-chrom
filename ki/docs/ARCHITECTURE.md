@@ -13,15 +13,18 @@
 │ client.ts    — UI RPC + event port (reconnect-aware)       │
 │ router.ts    — background dispatch, centralized error wrap │
 ├────────────────────────────────────────────────────────────┤
-│ Business logic (src/runtime, src/ai)                       │
+│ Business logic (src/runtime, src/ai, src/summary)          │
 │ RuntimeManager — status/test/pull/delete/testModel         │
 │ TaskQueue      — sequential lane, cancel, retry, memory    │
 │                  gate, persistence/restore, bounded history│
 │ memory.ts      — budget heuristic & fit assessment         │
+│ SummaryService — queue orchestration, dedupe, persistence, │
+│                  cancel-and-delete semantics               │
 ├────────────────────────────────────────────────────────────┤
-│ AI providers (src/ai/providers)                            │
+│ AI providers + pipelines (src/ai)                          │
 │ LlmProvider / SttProvider / TtsProvider contracts          │
 │ OllamaProvider — real HTTP + NDJSON streaming (Phase 1)    │
+│ summary/       — chunking, map-reduce, strict schema (Ph. 3)│
 │ Whisper/Piper providers implement same contracts (Phase 7/8)│
 ├────────────────────────────────────────────────────────────┤
 │ Storage (src/storage)                                      │
@@ -69,7 +72,9 @@ providers never import UI. Everything below the UI is unit-testable in Node.
    unload-after-task option sends `keep_alive: "0"` so RAM is freed immediately.
 4. **CPU-first.** No code path assumes a GPU. Ollama itself falls back to CPU;
    timeouts (default 120 s) absorb cold loads (~30 s measured on the reference
-   Pentium Silver N5030).
+   Pentium Silver N5030). Summary calls override the default with a dedicated
+   30-minute per-call ceiling, because prompt processing a ~9k-character chunk
+   can take 10–15 minutes on CPU; cancellation still aborts immediately.
 5. **Small defaults.** num_ctx 4096, num_predict 512, temperature 0.3 —
    chosen for a 1.5B model on CPU.
 
@@ -92,7 +97,52 @@ the reader directly on abort so a stalled read unblocks even if the transport
 doesn't tie the signal to the body. Header timeouts are separate from stream
 lifetime (pulls can run for minutes while emitting progress).
 
-## Security & privacy posture (Phase 1)
+## Summarization pipeline (Phase 3)
+
+Summarization is a bounded map-reduce job over an already-stored transcript.
+It never uploads content and never runs a second model call in parallel.
+
+1. **Chunk** (`src/ai/summary/chunking.ts`): character budget is
+   `(num_ctx − output_tokens − overhead_tokens) × 3`, clamped to at least 600.
+   The default 4096/512 configuration yields ~8.9k characters per map call.
+   Segments keep their real timestamps; a single segment longer than the budget
+   is split proportionally inside its own span (its last piece keeps the
+   original end time). Contexts below 1024 tokens are rejected with a typed
+   `INVALID_INPUT` and a settings hint.
+2. **Map** (`summarizer.ts`): one sequential call per chunk. Each reply must be
+   a JSON object `{summary, keyPoints:[{timestampMs,text}]}` validated by
+   `schema.ts`; map calls use `num_predict` as requested. Every summary call
+   carries a dedicated 30-minute transport ceiling
+   (`SUMMARY_CALL_TIMEOUT_MS`) so CPU prompt processing can finish; the abort
+   signal is still honored immediately.
+3. **Merge** (only when needed): collected notes are grouped to fit the merge
+   prompt; each group is condensed by another validated call, up to
+   `maxMergeRounds` (default 3). This keeps the final prompt inside the context
+   window instead of truncating evidence.
+4. **Reduce**: one final call produces `{overview, keyPoints, chapters}`. All
+   fields are length-bounded, timestamps must fall inside the video duration
+   plus 30 s of tolerance, and points/chapters are sorted and de-duplicated.
+5. **Failure semantics**: empty, non-JSON, wrong-shape or out-of-range replies
+   are rejected with a retryable `BAD_RESPONSE`; the stage retries internally
+   (default 2 attempts), then the queue owns retries. Invalid output is never
+   returned or stored.
+6. **Cancellation**: the abort signal is checked before every model call and
+   forwarded to the provider. If cancellation lands during the storage write,
+   the just-saved summary is removed and the task ends as cancelled.
+7. **Persistence** (`src/summary/repository.ts`): one current summary per video
+   record id, plus a metadata-only index (capped at 200, newest first) so the
+   Summary tab can list entries without reading transcript-sized records.
+   Corrupt records fail closed; corrupt index rows are dropped from display.
+8. **Service semantics** (`src/summary/service.ts`): generation is enqueued as
+   `kind: "video-summary"` with `meta.videoRecordId`. Concurrent requests for
+   the same video dedupe to the live task. Settings and the source video are
+   re-read at task start and again before saving; deleting a video removes its
+   summary first and cancels any in-flight generation.
+
+Prompt design keeps one language rule: the summary is written in the
+transcript's language, while the UI chrome follows the selected EN/AR language.
+
+## Security & privacy posture (Phases 1–3)
 
 - Permissions: `storage`, `alarms`. Host permissions: loopback Ollama only.
   Future remote providers must be `optional_host_permissions` + explicit consent.

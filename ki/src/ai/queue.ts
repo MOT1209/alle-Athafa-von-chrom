@@ -41,6 +41,8 @@ export interface TaskSpec {
   model?: string;
   estimatedSizeBytes?: number;
   maxRetries?: number;
+  /** Optional small identifiers so features can find their own tasks. */
+  meta?: Record<string, string>;
   run: (ctx: TaskContext) => Promise<unknown>;
 }
 
@@ -52,6 +54,7 @@ export interface TaskView {
   status: TaskStatus;
   attempts: number;
   maxRetries: number;
+  meta?: Record<string, string>;
   createdAt: number;
   startedAt?: number;
   finishedAt?: number;
@@ -160,6 +163,7 @@ export class TaskQueue {
       createdAt: this.now(),
     };
     if (spec.model !== undefined) view.model = spec.model;
+    if (spec.meta !== undefined) view.meta = { ...spec.meta };
     this.tasks.set(view.id, { view, spec });
     this.order.push(view.id);
     this.emitAdded(view);

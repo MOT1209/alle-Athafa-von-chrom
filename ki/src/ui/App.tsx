@@ -8,9 +8,10 @@ import type { Settings } from '../storage/settings';
 import { Button, ErrorNote } from './components';
 import { LibraryTab } from './LibraryTab';
 import { RuntimeTab } from './RuntimeTab';
+import { SummaryTab } from './SummaryTab';
 import { VideoTab } from './VideoTab';
 
-type Tab = 'runtime' | 'video' | 'library';
+type Tab = 'runtime' | 'video' | 'library' | 'summary';
 type Vars = Record<string, string | number>;
 
 export function App() {
@@ -110,6 +111,7 @@ export function App() {
     { id: 'runtime', labelKey: 'tab.runtime' },
     { id: 'video', labelKey: 'tab.video' },
     { id: 'library', labelKey: 'tab.library' },
+    { id: 'summary', labelKey: 'tab.summary' },
   ];
 
   return (
@@ -182,6 +184,15 @@ export function App() {
           tr={tr}
           runAction={runAction}
           busyAction={busyAction}
+          language={lang}
+        />
+      )}
+      {tab === 'summary' && (
+        <SummaryTab
+          tr={tr}
+          runAction={runAction}
+          busyAction={busyAction}
+          tasks={tasks}
           language={lang}
         />
       )}

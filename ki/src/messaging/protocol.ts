@@ -6,6 +6,7 @@ import type { Settings, SettingsPatch } from '../storage/settings';
 import type { ConsentScope, ConsentState } from '../capture/consent';
 import type { ActiveVideoResult } from '../capture/service';
 import type { VideoRecord, VideoSummary } from '../capture/videos';
+import type { SummaryListItem, SummaryRecord } from '../summary/repository';
 import type { YouTubeVideoInfo } from '../youtube/extract';
 
 /**
@@ -69,6 +70,19 @@ export interface RequestMap {
   'videos/list': { payload: undefined; response: VideoSummary[] };
   'videos/get': { payload: { id: string }; response: { record: VideoRecord | null } };
   'videos/remove': { payload: { id: string }; response: { removed: boolean } };
+  'summaries/generate': {
+    payload: { videoRecordId: string };
+    response: { taskId: string; deduped: boolean };
+  };
+  'summaries/list': { payload: undefined; response: SummaryListItem[] };
+  'summaries/get': {
+    payload: { videoRecordId: string };
+    response: { record: SummaryRecord | null };
+  };
+  'summaries/remove': {
+    payload: { videoRecordId: string };
+    response: { removed: boolean };
+  };
 }
 
 export type RequestType = keyof RequestMap;
@@ -122,6 +136,10 @@ const REQUEST_TYPES: ReadonlySet<string> = new Set<string>([
   'videos/list',
   'videos/get',
   'videos/remove',
+  'summaries/generate',
+  'summaries/list',
+  'summaries/get',
+  'summaries/remove',
 ]);
 
 export function isRequestType(value: unknown): value is RequestType {

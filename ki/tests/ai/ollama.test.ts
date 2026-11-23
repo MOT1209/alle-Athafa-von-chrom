@@ -216,6 +216,33 @@ describe('OllamaProvider — error mapping', () => {
     }
   });
 
+  it('a per-call timeout overrides the provider default', async () => {
+    vi.useFakeTimers();
+    try {
+      const { provider } = makeProvider(
+        (_url, init) =>
+          new Promise<Response>((_resolve, reject) => {
+            init.signal?.addEventListener('abort', () =>
+              reject(new DOMException('aborted', 'AbortError')),
+            );
+          }),
+        { requestTimeoutMs: 60_000 },
+      );
+      const promise = provider.chat([{ role: 'user', content: 'hi' }], {
+        timeoutMs: 1000,
+      });
+      const assertion = expect(promise).rejects.toMatchObject({
+        code: 'TIMEOUT',
+        message: expect.stringContaining('1000 ms'),
+      });
+      // The provider default is 60 s; the call must fail after its own 1 s.
+      await vi.advanceTimersByTimeAsync(1100);
+      await assertion;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('no model configured becomes NOT_CONFIGURED', async () => {
     const { provider } = makeProvider(() => jsonResponse({}), { defaultModel: undefined });
     const bare = new OllamaProvider({ baseUrl: 'http://127.0.0.1:11434' });

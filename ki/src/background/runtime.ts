@@ -18,6 +18,8 @@ import { Emitter } from '../core/events';
 import { ConsentStore } from '../capture/consent';
 import { VideoRepository } from '../capture/videos';
 import { CaptureService } from '../capture/service';
+import { SummaryRepository } from '../summary/repository';
+import { SummaryService } from '../summary/service';
 import { ChromeTabBridge } from '../browser/tabs';
 
 /**
@@ -90,15 +92,17 @@ export function bootstrapBackground(): void {
     },
   });
 
+  const makeProvider = (settings: Settings): OllamaProvider =>
+    new OllamaProvider({
+      baseUrl: settings.ollama.baseUrl,
+      requestTimeoutMs: settings.ollama.requestTimeoutMs,
+      defaultModel: settings.generation.model,
+    });
+
   const manager = new RuntimeManager({
     settings: settingsStore,
     queue,
-    makeProvider: (settings) =>
-      new OllamaProvider({
-        baseUrl: settings.ollama.baseUrl,
-        requestTimeoutMs: settings.ollama.requestTimeoutMs,
-        defaultModel: settings.generation.model,
-      }),
+    makeProvider,
   });
 
   const consentStore = new ConsentStore(localStore);
@@ -107,6 +111,14 @@ export function bootstrapBackground(): void {
     consent: consentStore,
     videos: videoRepository,
     tabs: new ChromeTabBridge(),
+  });
+  const summaryRepository = new SummaryRepository(localStore);
+  const summaryService = new SummaryService({
+    settings: settingsStore,
+    videos: videoRepository,
+    summaries: summaryRepository,
+    queue,
+    makeProvider,
   });
 
   const applySettings = (settings: Settings): void => {
@@ -174,9 +186,20 @@ export function bootstrapBackground(): void {
     'videos/get': async (payload) => ({
       record: (await videoRepository.get(payload.id)) ?? null,
     }),
-    'videos/remove': async (payload) => ({
-      removed: await videoRepository.remove(payload.id),
+    'videos/remove': async (payload) => {
+      await summaryService.removeForVideo(payload.id);
+      return {
+        removed: await videoRepository.remove(payload.id),
+      };
+    },
+    'summaries/generate': (payload) =>
+      summaryService.generate(payload.videoRecordId),
+    'summaries/list': () => summaryService.list(),
+    'summaries/get': async (payload) => ({
+      record: (await summaryService.get(payload.videoRecordId)) ?? null,
     }),
+    'summaries/remove': (payload) =>
+      summaryService.remove(payload.videoRecordId),
   });
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

@@ -33,6 +33,10 @@ function baseHandlers(overrides: Partial<Handlers> = {}): Handlers {
     'videos/list': () => [],
     'videos/get': () => ({ record: null }),
     'videos/remove': () => ({ removed: true }),
+    'summaries/generate': () => ({ taskId: 't3', deduped: false }),
+    'summaries/list': () => [],
+    'summaries/get': () => ({ record: null }),
+    'summaries/remove': () => ({ removed: true }),
     ...overrides,
   };
   return handlers;

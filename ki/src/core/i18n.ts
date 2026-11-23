@@ -16,7 +16,7 @@ const en = {
   'app.tagline': 'Local-first video knowledge',
   'app.language': 'العربية',
   'app.phaseNote':
-    'Phases 1-2: local AI runtime + YouTube transcript capture. Summaries, chat and learning tools arrive next.',
+    'Phases 1-3: local AI runtime, YouTube transcript capture and schema-validated summaries. Chat and learning tools arrive next.',
 
   'common.cancel': 'Cancel',
   'common.retry': 'Retry',
@@ -90,6 +90,7 @@ const en = {
   'tab.runtime': 'Runtime',
   'tab.video': 'Video',
   'tab.library': 'Library',
+  'tab.summary': 'Summary',
 
   'video.notYoutube': 'Open a YouTube video page, then refresh.',
   'video.noActiveTab': 'No active tab found.',
@@ -121,6 +122,35 @@ const en = {
   'library.back': 'Back to list',
   'library.capturedAt': 'Captured',
   'library.transcript': 'Transcript',
+
+  'summary.title': 'Video summaries',
+  'summary.localNote':
+    'Summaries are generated on your device by the local model from the stored transcript. Nothing is sent to external servers.',
+  'summary.empty':
+    'No captured videos yet. Capture a transcript from the Video tab first.',
+  'summary.none':
+    'No summaries yet. Choose a captured video below and summarize it.',
+  'summary.generate': 'Summarize',
+  'summary.regenerate': 'Regenerate',
+  'summary.open': 'Open summary',
+  'summary.back': 'Back to summaries',
+  'summary.overview': 'Overview',
+  'summary.keyPoints': 'Key points',
+  'summary.chapters': 'Chapters',
+  'summary.ready': 'Summary ready',
+  'summary.generated': 'Generated',
+  'summary.model': 'Model',
+  'summary.parts': '{count} parts',
+  'summary.deleteConfirm':
+    'Delete the summary of "{title}"? The transcript stays in the library.',
+  'summary.cancelNote':
+    'You can cancel while it runs. Partial results are never saved.',
+  'summary.progress': 'Summarizing locally…',
+  'summary.failed': 'Summary failed',
+  'summary.retryTask': 'Retry task',
+  'summary.noSummary': 'No summary yet.',
+  'summary.openAt': 'Open the video at {time}',
+  'summary.languageNote': 'The summary uses the transcript language.',
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -130,7 +160,7 @@ const ar: Record<MessageKey, string> = {
   'app.tagline': 'معرفة الفيديو محليًا أولًا',
   'app.language': 'English',
   'app.phaseNote':
-    'المرحلتان 1-2: بيئة الذكاء الاصطناعي المحلية + التقاط نصوص YouTube. التلخيصات والمحادثة وأدوات التعلم تصل تاليًا.',
+    'المراحل 1-3: بيئة الذكاء الاصطناعي المحلية، والتقاط نصوص YouTube، والملخصات المُتحقق منها. المحادثة وأدوات التعلم تصل تاليًا.',
 
   'common.cancel': 'إلغاء',
   'common.retry': 'إعادة المحاولة',
@@ -204,6 +234,7 @@ const ar: Record<MessageKey, string> = {
   'tab.runtime': 'البيئة',
   'tab.video': 'الفيديو',
   'tab.library': 'المكتبة',
+  'tab.summary': 'الملخص',
 
   'video.notYoutube': 'افتح صفحة فيديو على YouTube ثم حدّث.',
   'video.noActiveTab': 'لا توجد علامة تبويب نشطة.',
@@ -235,6 +266,35 @@ const ar: Record<MessageKey, string> = {
   'library.back': 'عودة إلى القائمة',
   'library.capturedAt': 'التُقط في',
   'library.transcript': 'النص',
+
+  'summary.title': 'ملخصات الفيديو',
+  'summary.localNote':
+    'تُنشأ الملخصات على جهازك بواسطة النموذج المحلي من النص المخزّن. لا يُرسل شيء إلى خوادم خارجية.',
+  'summary.empty':
+    'لا فيديوهات ملتقطة بعد. التقط نصًا من تبويب الفيديو أولًا.',
+  'summary.none':
+    'لا ملخصات بعد. اختر فيديو ملتقطًا أدناه ولخّصه.',
+  'summary.generate': 'تلخيص',
+  'summary.regenerate': 'إعادة التلخيص',
+  'summary.open': 'فتح الملخص',
+  'summary.back': 'عودة إلى الملخصات',
+  'summary.overview': 'نظرة عامة',
+  'summary.keyPoints': 'النقاط الرئيسية',
+  'summary.chapters': 'الفصول',
+  'summary.ready': 'الملخص جاهز',
+  'summary.generated': 'أُنشئ في',
+  'summary.model': 'النموذج',
+  'summary.parts': '{count} أجزاء',
+  'summary.deleteConfirm':
+    'حذف ملخص "{title}"؟ يبقى النص في المكتبة.',
+  'summary.cancelNote':
+    'يمكنك الإلغاء أثناء التشغيل. لا تُحفظ النتائج الجزئية أبدًا.',
+  'summary.progress': 'جارٍ التلخيص محليًا…',
+  'summary.failed': 'فشل التلخيص',
+  'summary.retryTask': 'إعادة محاولة المهمة',
+  'summary.noSummary': 'لا ملخص بعد.',
+  'summary.openAt': 'فتح الفيديو عند {time}',
+  'summary.languageNote': 'يستخدم الملخص لغة النص.',
 };
 
 const dictionaries: Record<Language, Record<MessageKey, string>> = {
