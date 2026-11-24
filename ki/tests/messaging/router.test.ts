@@ -41,6 +41,12 @@ function baseHandlers(overrides: Partial<Handlers> = {}): Handlers {
     'chat/history': () => ({ record: null }),
     'chat/list': () => [],
     'chat/clear': () => ({ cleared: true }),
+    'transcripts/updateSegment': () => ({ record: {} as never, changed: true }),
+    'transcripts/search': () => ({ hits: [] }),
+    'translations/generate': () => ({ taskId: 't5', deduped: false }),
+    'translations/list': () => [],
+    'translations/get': () => ({ bundle: null, staleLanguages: [] }),
+    'translations/remove': () => ({ removed: true }),
     ...overrides,
   };
   return handlers;

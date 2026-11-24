@@ -8,6 +8,11 @@ import type { ActiveVideoResult } from '../capture/service';
 import type { VideoRecord, VideoSummary } from '../capture/videos';
 import type { SummaryListItem, SummaryRecord } from '../summary/repository';
 import type { ChatListItem, ChatRecord } from '../chat/repository';
+import type { TranscriptSearchHit } from '../transcripts/search';
+import type {
+  TranslationBundle,
+  TranslationListItem,
+} from '../transcripts/translations';
 import type { YouTubeVideoInfo } from '../youtube/extract';
 
 /**
@@ -97,6 +102,27 @@ export interface RequestMap {
     payload: { videoRecordId: string };
     response: { cleared: boolean };
   };
+  'transcripts/updateSegment': {
+    payload: { videoRecordId: string; index: number; text: string };
+    response: { record: VideoRecord; changed: boolean };
+  };
+  'transcripts/search': {
+    payload: { query: string; limit?: number };
+    response: { hits: TranscriptSearchHit[] };
+  };
+  'translations/generate': {
+    payload: { videoRecordId: string; targetLanguage: string };
+    response: { taskId: string; deduped: boolean };
+  };
+  'translations/list': { payload: undefined; response: TranslationListItem[] };
+  'translations/get': {
+    payload: { videoRecordId: string };
+    response: { bundle: TranslationBundle | null; staleLanguages: string[] };
+  };
+  'translations/remove': {
+    payload: { videoRecordId: string; targetLanguage?: string };
+    response: { removed: boolean };
+  };
 }
 
 export type RequestType = keyof RequestMap;
@@ -158,6 +184,12 @@ const REQUEST_TYPES: ReadonlySet<string> = new Set<string>([
   'chat/history',
   'chat/list',
   'chat/clear',
+  'transcripts/updateSegment',
+  'transcripts/search',
+  'translations/generate',
+  'translations/list',
+  'translations/get',
+  'translations/remove',
 ]);
 
 export function isRequestType(value: unknown): value is RequestType {
