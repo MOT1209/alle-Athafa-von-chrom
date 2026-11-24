@@ -25,6 +25,8 @@ import { ChatService } from '../chat/service';
 import { TranscriptService } from '../transcripts/service';
 import { TranslationService } from '../transcripts/translation-service';
 import { TranslationRepository } from '../transcripts/translations';
+import { LearningService } from '../learning/service';
+import { LearningRepository } from '../learning/repository';
 import { ChromeTabBridge } from '../browser/tabs';
 
 /**
@@ -144,6 +146,14 @@ export function bootstrapBackground(): void {
     queue,
     makeProvider,
   });
+  const learningRepository = new LearningRepository(localStore);
+  const learningService = new LearningService({
+    settings: settingsStore,
+    videos: videoRepository,
+    learning: learningRepository,
+    queue,
+    makeProvider,
+  });
 
   const applySettings = (settings: Settings): void => {
     cachedSettings = settings;
@@ -211,6 +221,7 @@ export function bootstrapBackground(): void {
       record: (await videoRepository.get(payload.id)) ?? null,
     }),
     'videos/remove': async (payload) => {
+      await learningService.removeForVideo(payload.id);
       await translationService.removeForVideo(payload.id);
       await summaryService.removeForVideo(payload.id);
       await chatService.removeForVideo(payload.id);
@@ -246,6 +257,14 @@ export function bootstrapBackground(): void {
       }
       return { removed: await translationService.removeForVideo(payload.videoRecordId) };
     },
+    'learning/generate': (payload) => learningService.generate(payload.videoRecordId),
+    'learning/list': () => learningService.list(),
+    'learning/get': async (payload) => ({
+      record: (await learningService.get(payload.videoRecordId)) ?? null,
+    }),
+    'learning/remove': (payload) => learningService.remove(payload.videoRecordId),
+    'learning/review': (payload) =>
+      learningService.reviewCard(payload.videoRecordId, payload.cardId, payload.rating),
     'summaries/generate': (payload) =>
       summaryService.generate(payload.videoRecordId),
     'summaries/list': () => summaryService.list(),

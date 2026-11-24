@@ -13,6 +13,7 @@ import type {
   TranslationBundle,
   TranslationListItem,
 } from '../transcripts/translations';
+import type { LearningListItem, LearningRecord } from '../learning/repository';
 import type { YouTubeVideoInfo } from '../youtube/extract';
 
 /**
@@ -123,6 +124,23 @@ export interface RequestMap {
     payload: { videoRecordId: string; targetLanguage?: string };
     response: { removed: boolean };
   };
+  'learning/generate': {
+    payload: { videoRecordId: string };
+    response: { taskId: string; deduped: boolean };
+  };
+  'learning/list': { payload: undefined; response: LearningListItem[] };
+  'learning/get': {
+    payload: { videoRecordId: string };
+    response: { record: LearningRecord | null };
+  };
+  'learning/remove': {
+    payload: { videoRecordId: string };
+    response: { removed: boolean };
+  };
+  'learning/review': {
+    payload: { videoRecordId: string; cardId: string; rating: 'again' | 'hard' | 'good' | 'easy' };
+    response: { reviewed: boolean };
+  };
 }
 
 export type RequestType = keyof RequestMap;
@@ -190,6 +208,11 @@ const REQUEST_TYPES: ReadonlySet<string> = new Set<string>([
   'translations/list',
   'translations/get',
   'translations/remove',
+  'learning/generate',
+  'learning/list',
+  'learning/get',
+  'learning/remove',
+  'learning/review',
 ]);
 
 export function isRequestType(value: unknown): value is RequestType {
