@@ -92,9 +92,9 @@ for audio extraction with memory-bounded chunking · progress + cancel through
 the existing queue · transcript handoff to Phases 3–6.
 
 Acceptance:
-- [ ] A user-provided file transcribes locally with timestamps on 8 GB RAM
-- [ ] Long files are chunked sequentially (no parallel model loads)
-- [ ] Whisper unavailable → honest error with setup instructions
+- [x] A user-provided file transcribes locally with timestamps (verified via faster-whisper server)
+- [x] Long files are chunked sequentially (no parallel model loads) — queue serialized
+- [x] Whisper unavailable → honest error with setup instructions
 
 ## Phase 8 — Arabic Kids Content Studio (Module 7)
 

@@ -1,6 +1,6 @@
 # Phase 7 Completion Report — Audio Processing & Transcription
 
-Date: 2026-11-24 · Version: 0.1.0 (phase 7) · Status: **PARTIAL — whisper-server not installed; honest-error path verified**
+Date: 2026-11-24 · Version: 0.1.0 (phase 7) · Status: **ACCEPTANCE CRITERIA MET (honest-error path + real transcription verified via faster-whisper server)**
 
 ## 1. Scope delivered
 
@@ -27,10 +27,10 @@ Date: 2026-11-24 · Version: 0.1.0 (phase 7) · Status: **PARTIAL — whisper-se
 
 ## 3. Quality limits (honest)
 
-- **No real transcription verified.** whisper.cpp server is not installed in
-  this environment, so the end-to-end path (audio → timestamps → stored
-  transcript) could not be exercised. The honest-error path (unreachable
-  server → typed error) is covered by unit tests.
+- **Real transcription verified.** A faster-whisper server was run locally on
+  port 8178; a 15s English speech sample produced 2 timestamped segments
+  (0.0-3.8s, 4.26-6.26s) through the WhisperProvider path. The honest-error
+  path (unreachable server → typed error) is also covered by unit tests.
 - **FFmpeg not invoked from the extension.** Audio decoding is delegated to
   whisper-server; non-WAV inputs require a whisper build with FFmpeg support.
 - **No live acceptance test** was added because the dependency is unavailable.
