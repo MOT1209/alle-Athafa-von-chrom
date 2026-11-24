@@ -6,12 +6,13 @@ import { sendRequest, subscribeEvents } from '../messaging/client';
 import type { BackgroundEvent, RuntimeStatus } from '../messaging/protocol';
 import type { Settings } from '../storage/settings';
 import { Button, ErrorNote } from './components';
+import { ChatTab } from './ChatTab';
 import { LibraryTab } from './LibraryTab';
 import { RuntimeTab } from './RuntimeTab';
 import { SummaryTab } from './SummaryTab';
 import { VideoTab } from './VideoTab';
 
-type Tab = 'runtime' | 'video' | 'library' | 'summary';
+type Tab = 'runtime' | 'video' | 'library' | 'summary' | 'chat';
 type Vars = Record<string, string | number>;
 
 export function App() {
@@ -112,6 +113,7 @@ export function App() {
     { id: 'video', labelKey: 'tab.video' },
     { id: 'library', labelKey: 'tab.library' },
     { id: 'summary', labelKey: 'tab.summary' },
+    { id: 'chat', labelKey: 'tab.chat' },
   ];
 
   return (
@@ -189,6 +191,15 @@ export function App() {
       )}
       {tab === 'summary' && (
         <SummaryTab
+          tr={tr}
+          runAction={runAction}
+          busyAction={busyAction}
+          tasks={tasks}
+          language={lang}
+        />
+      )}
+      {tab === 'chat' && (
+        <ChatTab
           tr={tr}
           runAction={runAction}
           busyAction={busyAction}

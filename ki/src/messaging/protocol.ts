@@ -7,6 +7,7 @@ import type { ConsentScope, ConsentState } from '../capture/consent';
 import type { ActiveVideoResult } from '../capture/service';
 import type { VideoRecord, VideoSummary } from '../capture/videos';
 import type { SummaryListItem, SummaryRecord } from '../summary/repository';
+import type { ChatListItem, ChatRecord } from '../chat/repository';
 import type { YouTubeVideoInfo } from '../youtube/extract';
 
 /**
@@ -83,6 +84,19 @@ export interface RequestMap {
     payload: { videoRecordId: string };
     response: { removed: boolean };
   };
+  'chat/ask': {
+    payload: { videoRecordId: string; question: string };
+    response: { taskId: string; deduped: boolean };
+  };
+  'chat/history': {
+    payload: { videoRecordId: string };
+    response: { record: ChatRecord | null };
+  };
+  'chat/list': { payload: undefined; response: ChatListItem[] };
+  'chat/clear': {
+    payload: { videoRecordId: string };
+    response: { cleared: boolean };
+  };
 }
 
 export type RequestType = keyof RequestMap;
@@ -140,6 +154,10 @@ const REQUEST_TYPES: ReadonlySet<string> = new Set<string>([
   'summaries/list',
   'summaries/get',
   'summaries/remove',
+  'chat/ask',
+  'chat/history',
+  'chat/list',
+  'chat/clear',
 ]);
 
 export function isRequestType(value: unknown): value is RequestType {

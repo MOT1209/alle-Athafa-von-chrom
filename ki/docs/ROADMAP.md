@@ -52,16 +52,16 @@ Acceptance (met — see docs/reports/PHASE-3.md; quality limits documented):
 - [x] Invalid model output is rejected/retried, never shown as fact
 - [x] Summary persists and reopens; cancel works mid-run
 
-## Phase 4 — Chat With Video (Module 4)
+## Phase 4 — Chat With Video (Module 4) ✅ COMPLETE
 
 Scope: retrieval over transcript chunks (local BM25/keyword default; optional
 Ollama embeddings when a small embed model is present) · chat UI with cited
 timestamps · context budgeting for 4096 ctx · chat history per video.
 
-Acceptance:
-- [ ] Questions answer from the actual transcript with clickable citations
-- [ ] "Not in the video" is answered honestly when retrieval finds nothing
-- [ ] Chat works fully offline (local retrieval + local LLM)
+Acceptance (met — see docs/reports/PHASE-4.md; quality limits documented):
+- [x] Questions answer from the actual transcript with clickable citations
+- [x] "Not in the video" is answered honestly when retrieval finds nothing
+- [x] Chat works fully offline (local retrieval + local LLM)
 
 ## Phase 5 — Translation & Transcript Management (Module 5)
 

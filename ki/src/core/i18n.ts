@@ -16,7 +16,7 @@ const en = {
   'app.tagline': 'Local-first video knowledge',
   'app.language': 'العربية',
   'app.phaseNote':
-    'Phases 1-3: local AI runtime, YouTube transcript capture and schema-validated summaries. Chat and learning tools arrive next.',
+    'Phases 1-4: local AI runtime, YouTube transcript capture, schema-validated summaries and transcript-grounded chat with citations. Learning tools arrive next.',
 
   'common.cancel': 'Cancel',
   'common.retry': 'Retry',
@@ -91,6 +91,7 @@ const en = {
   'tab.video': 'Video',
   'tab.library': 'Library',
   'tab.summary': 'Summary',
+  'tab.chat': 'Chat',
 
   'video.notYoutube': 'Open a YouTube video page, then refresh.',
   'video.noActiveTab': 'No active tab found.',
@@ -151,6 +152,37 @@ const en = {
   'summary.noSummary': 'No summary yet.',
   'summary.openAt': 'Open the video at {time}',
   'summary.languageNote': 'The summary uses the transcript language.',
+
+  'chat.title': 'Chat with a video',
+  'chat.localNote':
+    'Questions are answered on your device by the local model from the stored transcript. When the transcript does not cover the answer, the assistant says so instead of guessing.',
+  'chat.empty':
+    'No captured videos yet. Capture a transcript from the Video tab first.',
+  'chat.none':
+    'No conversation yet. Choose a captured video below and ask a question.',
+  'chat.ask': 'Ask',
+  'chat.placeholder': 'Ask about this video…',
+  'chat.open': 'Open conversation',
+  'chat.back': 'Back to chats',
+  'chat.you': 'You',
+  'chat.assistant': 'Assistant',
+  'chat.askHint':
+    'You can cancel while it runs. Nothing partial is saved.',
+  'chat.progress': 'Answering from the transcript…',
+  'chat.failed': 'Question failed',
+  'chat.retryTask': 'Retry task',
+  'chat.notInVideo':
+    'This is not covered in the video transcript, so the assistant will not guess.',
+  'chat.citations': 'Sources',
+  'chat.clearConfirm':
+    'Delete the conversation about "{title}"? The transcript stays in the library.',
+  'chat.clear': 'Clear conversation',
+  'chat.noConversation': 'No conversation yet.',
+  'chat.answered': 'Answered from the transcript',
+  'chat.messages': '{count} messages',
+  'chat.openAt': 'Open the video at {time}',
+  'chat.emptyQuestion': 'Type a question first.',
+  'chat.updated': 'Updated',
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -160,7 +192,7 @@ const ar: Record<MessageKey, string> = {
   'app.tagline': 'معرفة الفيديو محليًا أولًا',
   'app.language': 'English',
   'app.phaseNote':
-    'المراحل 1-3: بيئة الذكاء الاصطناعي المحلية، والتقاط نصوص YouTube، والملخصات المُتحقق منها. المحادثة وأدوات التعلم تصل تاليًا.',
+    'المراحل 1-4: بيئة الذكاء الاصطناعي المحلية، والتقاط نصوص YouTube، والملخصات المُتحقق منها، ومحادثة مستندة إلى النص مع استشهادات. أدوات التعلم تصل تاليًا.',
 
   'common.cancel': 'إلغاء',
   'common.retry': 'إعادة المحاولة',
@@ -235,6 +267,7 @@ const ar: Record<MessageKey, string> = {
   'tab.video': 'الفيديو',
   'tab.library': 'المكتبة',
   'tab.summary': 'الملخص',
+  'tab.chat': 'المحادثة',
 
   'video.notYoutube': 'افتح صفحة فيديو على YouTube ثم حدّث.',
   'video.noActiveTab': 'لا توجد علامة تبويب نشطة.',
@@ -295,6 +328,37 @@ const ar: Record<MessageKey, string> = {
   'summary.noSummary': 'لا ملخص بعد.',
   'summary.openAt': 'فتح الفيديو عند {time}',
   'summary.languageNote': 'يستخدم الملخص لغة النص.',
+
+  'chat.title': 'محادثة مع فيديو',
+  'chat.localNote':
+    'تُجاب الأسئلة على جهازك بواسطة النموذج المحلي من النص المخزّن. وإذا لم يغطِّ النص الإجابة، يقول المساعد ذلك بدلًا من التخمين.',
+  'chat.empty':
+    'لا فيديوهات ملتقطة بعد. التقط نصًا من تبويب الفيديو أولًا.',
+  'chat.none':
+    'لا محادثة بعد. اختر فيديو ملتقطًا أدناه واسأل عنه.',
+  'chat.ask': 'اسأل',
+  'chat.placeholder': 'اسأل عن هذا الفيديو…',
+  'chat.open': 'فتح المحادثة',
+  'chat.back': 'عودة إلى المحادثات',
+  'chat.you': 'أنت',
+  'chat.assistant': 'المساعد',
+  'chat.askHint':
+    'يمكنك الإلغاء أثناء التشغيل. لا تُحفظ الإجابات الجزئية أبدًا.',
+  'chat.progress': 'جارٍ الإجابة من النص…',
+  'chat.failed': 'فشل السؤال',
+  'chat.retryTask': 'إعادة محاولة المهمة',
+  'chat.notInVideo':
+    'هذا غير مذكور في نص الفيديو، لذلك لن يخمّن المساعد.',
+  'chat.citations': 'المصادر',
+  'chat.clearConfirm':
+    'حذف المحادثة عن "{title}"؟ يبقى النص في المكتبة.',
+  'chat.clear': 'مسح المحادثة',
+  'chat.noConversation': 'لا محادثة بعد.',
+  'chat.answered': 'أُجيبت من النص',
+  'chat.messages': '{count} رسائل',
+  'chat.openAt': 'فتح الفيديو عند {time}',
+  'chat.emptyQuestion': 'اكتب سؤالًا أولًا.',
+  'chat.updated': 'آخر تحديث',
 };
 
 const dictionaries: Record<Language, Record<MessageKey, string>> = {

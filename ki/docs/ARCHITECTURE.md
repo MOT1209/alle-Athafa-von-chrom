@@ -13,18 +13,21 @@
 │ client.ts    — UI RPC + event port (reconnect-aware)       │
 │ router.ts    — background dispatch, centralized error wrap │
 ├────────────────────────────────────────────────────────────┤
-│ Business logic (src/runtime, src/ai, src/summary)          │
+│ Business logic (src/runtime, src/ai, src/summary, src/chat) │
 │ RuntimeManager — status/test/pull/delete/testModel         │
 │ TaskQueue      — sequential lane, cancel, retry, memory    │
 │                  gate, persistence/restore, bounded history│
 │ memory.ts      — budget heuristic & fit assessment         │
 │ SummaryService — queue orchestration, dedupe, persistence, │
 │                  cancel-and-delete semantics               │
+│ ChatService    — grounded Q&A, one in-flight per video,    │
+│                  persist-only-validated exchanges          │
 ├────────────────────────────────────────────────────────────┤
 │ AI providers + pipelines (src/ai)                          │
 │ LlmProvider / SttProvider / TtsProvider contracts          │
 │ OllamaProvider — real HTTP + NDJSON streaming (Phase 1)    │
 │ summary/       — chunking, map-reduce, strict schema (Ph. 3)│
+│ chat/          — BM25 retrieval, grounded answer (Ph. 4)   │
 │ Whisper/Piper providers implement same contracts (Phase 7/8)│
 ├────────────────────────────────────────────────────────────┤
 │ Storage (src/storage)                                      │
@@ -73,8 +76,9 @@ providers never import UI. Everything below the UI is unit-testable in Node.
 4. **CPU-first.** No code path assumes a GPU. Ollama itself falls back to CPU;
    timeouts (default 120 s) absorb cold loads (~30 s measured on the reference
    Pentium Silver N5030). Summary calls override the default with a dedicated
-   30-minute per-call ceiling, because prompt processing a ~9k-character chunk
-   can take 10–15 minutes on CPU; cancellation still aborts immediately.
+   30-minute per-call ceiling, and chat calls with a 15-minute ceiling, because
+   prompt processing on CPU can take 10–15 minutes; cancellation still aborts
+   immediately.
 5. **Small defaults.** num_ctx 4096, num_predict 512, temperature 0.3 —
    chosen for a 1.5B model on CPU.
 
@@ -142,15 +146,50 @@ It never uploads content and never runs a second model call in parallel.
 Prompt design keeps one language rule: the summary is written in the
 transcript's language, while the UI chrome follows the selected EN/AR language.
 
-## Security & privacy posture (Phases 1–3)
+## Chat pipeline (Phase 4)
+
+Chat answers one question from an already-stored transcript. It never uploads
+content, never loads an embedding model, and never runs a second model call in
+parallel.
+
+1. **Window** (`src/ai/chat/retrieval.ts`): consecutive segments are grouped
+   into overlapping ~700-character windows (140-character overlap), preserving
+   real start/end times. Empty segments are dropped.
+2. **Retrieve**: normalized/stemmed AR/EN tokens are scored with BM25 over the
+   windows. A multi-term question must match at least two distinct terms;
+   results below 20% of the best score are dropped, and at most 4 windows are
+   kept. No overlap means the model is not called at all.
+3. **Budget** (`answerer.ts`): output tokens are `max(num_predict, 240)` capped
+   at half the context; the character budget reserves 500 tokens of prompt
+   overhead. Retrieved passages are trimmed to fit, and at most the last ~900
+   characters of history are included as context only, never as evidence.
+4. **Answer**: one JSON-mode call returns `{found, answer, usedSources}`. Shape,
+   field bounds, and source numbers are validated; invalid output is retried
+   internally (2 attempts) and then surfaces as retryable `BAD_RESPONSE`.
+5. **Cite**: the model never supplies timestamps. Each used source is mapped to
+   its best-matching real segment, de-duplicated by start time, sorted, and
+   quoted up to 320 characters.
+6. **Persist** (`src/chat/repository.ts`, `src/chat/service.ts`): only a
+   validated exchange is written, capped at 60 messages and trimmed to start on
+   a user turn. Questions run as `kind: "video-chat"` with one in flight per
+   video. A cancel during the save removes the just-written pair. Deleting a
+   video removes its conversation first.
+
+A model refusal (`found:false`) is stored as a not-in-video turn and the model's
+wording is discarded, so the UI always shows one honest localized message.
+
+## Security & privacy posture (Phases 1–4)
 
 - Permissions: `storage`, `alarms`. Host permissions: loopback Ollama only.
   Future remote providers must be `optional_host_permissions` + explicit consent.
 - No secrets exist in Phase 1 (local server needs no key). The key-vault pattern
   (presence-only reads) arrives with optional remote providers.
 - No telemetry, no remote code, no eval/new Function (enforced by e2e checks).
-- No content scripts yet — YouTube integration (Phase 2) will use accessible
-  captions and user-authorized media only; no DRM bypass, no redistribution.
+- The YouTube content script runs only on watch pages and only after per-site
+  consent; it reads the caption track the page already exposes. No DRM bypass,
+  no media download, no redistribution.
+- Transcripts, summaries, and chat conversations stay in
+  `chrome.storage.local`; the only network target is loopback Ollama.
 
 ## Testing strategy
 
@@ -158,11 +197,13 @@ transcript's language, while the UI chrome follows the selected EN/AR language.
   for the provider, MemoryStore for storage, fake wait/now for the queue,
   stubbed chrome for the client. Coverage thresholds enforced (85/80/85/85)
   over src minus UI/background wiring.
-- **Package e2e (scripts/e2e.mjs):** 42 checks on the built output — manifest
+- **Package e2e (scripts/e2e.mjs):** 49 checks on the built output — manifest
   validity, minimal permissions, loopback-only hosts, icons, no source maps,
   no eval/remote code, asset references.
 - **Live integration (tests/integration):** real Ollama version/tags/ps/chat/
-  stream, gated by `VM_LIVE_OLLAMA=1` (`npm run test:live`).
+  stream, gated by `VM_LIVE_OLLAMA=1` (`npm run test:live`); real-model summary
+  (`npm run test:live:summary`) and chat (`npm run test:live:chat`) acceptance
+  suites, gated separately.
 - **Real-browser smoke (scripts/browser-smoke.mjs):** loads the built extension
   into headless Chrome via CDP `Extensions.loadUnpacked` (branded Chrome ≥ 137
   ignores `--load-extension`), opens the popup, asserts rendered runtime data,

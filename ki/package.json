@@ -15,6 +15,7 @@
     "test:coverage": "vitest run --coverage",
     "test:live": "node scripts/live-test.mjs",
     "test:live:summary": "node scripts/live-summary.mjs",
+    "test:live:chat": "node scripts/live-chat.mjs",
     "icons": "node scripts/icons.mjs",
     "e2e": "node scripts/e2e.mjs",
     "smoke": "node scripts/browser-smoke.mjs",

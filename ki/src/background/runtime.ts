@@ -20,6 +20,8 @@ import { VideoRepository } from '../capture/videos';
 import { CaptureService } from '../capture/service';
 import { SummaryRepository } from '../summary/repository';
 import { SummaryService } from '../summary/service';
+import { ChatRepository } from '../chat/repository';
+import { ChatService } from '../chat/service';
 import { ChromeTabBridge } from '../browser/tabs';
 
 /**
@@ -120,6 +122,14 @@ export function bootstrapBackground(): void {
     queue,
     makeProvider,
   });
+  const chatRepository = new ChatRepository(localStore);
+  const chatService = new ChatService({
+    settings: settingsStore,
+    videos: videoRepository,
+    chats: chatRepository,
+    queue,
+    makeProvider,
+  });
 
   const applySettings = (settings: Settings): void => {
     cachedSettings = settings;
@@ -188,6 +198,7 @@ export function bootstrapBackground(): void {
     }),
     'videos/remove': async (payload) => {
       await summaryService.removeForVideo(payload.id);
+      await chatService.removeForVideo(payload.id);
       return {
         removed: await videoRepository.remove(payload.id),
       };
@@ -200,6 +211,12 @@ export function bootstrapBackground(): void {
     }),
     'summaries/remove': (payload) =>
       summaryService.remove(payload.videoRecordId),
+    'chat/ask': (payload) => chatService.ask(payload),
+    'chat/history': async (payload) => ({
+      record: (await chatService.history(payload.videoRecordId)) ?? null,
+    }),
+    'chat/list': () => chatService.list(),
+    'chat/clear': (payload) => chatService.clear(payload.videoRecordId),
   });
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

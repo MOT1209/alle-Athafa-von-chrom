@@ -37,6 +37,10 @@ function baseHandlers(overrides: Partial<Handlers> = {}): Handlers {
     'summaries/list': () => [],
     'summaries/get': () => ({ record: null }),
     'summaries/remove': () => ({ removed: true }),
+    'chat/ask': () => ({ taskId: 't4', deduped: false }),
+    'chat/history': () => ({ record: null }),
+    'chat/list': () => [],
+    'chat/clear': () => ({ cleared: true }),
     ...overrides,
   };
   return handlers;
