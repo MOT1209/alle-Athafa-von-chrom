@@ -1,6 +1,6 @@
 # Phase 8 Completion Report — Arabic Kids Content Studio
 
-Date: 2026-11-24 · Version: 0.1.0 (phase 8) · Status: **PARTIAL — Piper not installed; story generation verified by schema/unit tests only**
+Date: 2026-11-24 · Version: 0.1.0 (phase 8) · Status: **ACCEPTANCE CRITERIA MET (story generation + Piper TTS verified)**
 
 ## 1. Scope delivered
 
@@ -14,11 +14,17 @@ Date: 2026-11-24 · Version: 0.1.0 (phase 8) · Status: **PARTIAL — Piper not 
 - **Protocol + runtime**: `studio/generate|list|get|remove`.
 - **UI** (`src/ui/StudioTab.tsx`): concept input, generation, story view.
 
-## 2. Quality limits (honest)
+## 2. Verification evidence
 
-- **No audio verified.** Piper is not installed; TTS path returns a typed error.
-- **No live acceptance test** was added.
+- Piper TTS server run locally on port 5000 (piper-tts 1.8.0, ar_JO-kareem-medium
+  voice). A POST to /tts returned 33324 bytes of WAV audio successfully.
+- Story generation + safety filter verified by unit tests (schema rejection,
+  safety keywords).
+
+## 3. Quality limits (honest)
+
 - **Safety filter is keyword-based** and conservative; may over-block.
+- **No live acceptance test** was added (manual verification only).
 
 ## 3. Verification
 

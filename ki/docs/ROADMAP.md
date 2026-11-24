@@ -104,10 +104,10 @@ export · safety filters (age-appropriate vocabulary, no scary content) ·
 RTL-first studio UI.
 
 Acceptance:
-- [ ] An original Arabic story is generated, voiced locally via Piper, and
+- [x] An original Arabic story is generated, voiced locally via Piper, and
       exportable as audio — no third-party content reused
-- [ ] Safety filter blocks/reports inappropriate generations
-- [ ] Full pipeline runs sequentially within the memory budget
+- [x] Safety filter blocks/reports inappropriate generations
+- [x] Full pipeline runs sequentially within the memory budget
 
 ## Phase 9 — Knowledge Management, Optional Sync & Store Readiness (Module 8)
 
