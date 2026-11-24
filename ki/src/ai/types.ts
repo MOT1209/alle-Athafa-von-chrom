@@ -96,6 +96,7 @@ export interface SttOptions {
 export interface SttProvider {
   readonly id: string;
   transcribe(audio: Blob, options?: SttOptions): Promise<Transcript>;
+  health?(): Promise<{ ok: boolean; version?: string; error?: unknown }>;
 }
 
 export interface TtsOptions {

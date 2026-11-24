@@ -52,6 +52,12 @@ function baseHandlers(overrides: Partial<Handlers> = {}): Handlers {
     'learning/get': () => ({ record: null }),
     'learning/remove': () => ({ removed: true }),
     'learning/review': () => ({ reviewed: true }),
+    'stt/transcribe': () => ({ taskId: 't7', deduped: false }),
+    'stt/status': () => ({ available: false }),
+    'studio/generate': () => ({ taskId: 't8', deduped: false }),
+    'studio/list': () => [],
+    'studio/get': () => ({ record: null }),
+    'studio/remove': () => ({ removed: true }),
     ...overrides,
   };
   return handlers;

@@ -8,13 +8,14 @@ import type { Settings } from '../storage/settings';
 import { Button, ErrorNote } from './components';
 import { ChatTab } from './ChatTab';
 import { LearningTab } from './LearningTab';
+import { StudioTab } from './StudioTab';
 import { LibraryTab } from './LibraryTab';
 import { RuntimeTab } from './RuntimeTab';
 import { SummaryTab } from './SummaryTab';
 import { TranscriptTab } from './TranscriptTab';
 import { VideoTab } from './VideoTab';
 
-type Tab = 'runtime' | 'video' | 'library' | 'summary' | 'chat' | 'transcript' | 'learning';
+type Tab = 'runtime' | 'video' | 'library' | 'summary' | 'chat' | 'transcript' | 'learning' | 'studio';
 type Vars = Record<string, string | number>;
 
 export function App() {
@@ -118,6 +119,7 @@ export function App() {
     { id: 'chat', labelKey: 'tab.chat' },
     { id: 'transcript', labelKey: 'tab.transcript' },
     { id: 'learning', labelKey: 'tab.learning' },
+    { id: 'studio', labelKey: 'tab.studio' },
   ];
 
   return (
@@ -221,6 +223,15 @@ export function App() {
       )}
       {tab === 'learning' && (
         <LearningTab
+          tr={tr}
+          runAction={runAction}
+          busyAction={busyAction}
+          tasks={tasks}
+          language={lang}
+        />
+      )}
+      {tab === 'studio' && (
+        <StudioTab
           tr={tr}
           runAction={runAction}
           busyAction={busyAction}
