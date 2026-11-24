@@ -27,6 +27,10 @@ import { TranslationService } from '../transcripts/translation-service';
 import { TranslationRepository } from '../transcripts/translations';
 import { LearningService } from '../learning/service';
 import { LearningRepository } from '../learning/repository';
+import { SttService } from '../stt/service';
+import { WhisperProvider } from '../ai/stt/whisper';
+import { StoryService } from '../studio/service';
+import { StoryRepository } from '../studio/repository';
 import { ChromeTabBridge } from '../browser/tabs';
 
 /**
@@ -154,6 +158,18 @@ export function bootstrapBackground(): void {
     queue,
     makeProvider,
   });
+  const sttService = new SttService({
+    videos: videoRepository,
+    queue,
+    makeProvider: () => new WhisperProvider({ baseUrl: 'http://127.0.0.1:8178' }),
+  });
+  const storyRepository = new StoryRepository(localStore);
+  const storyService = new StoryService({
+    settings: settingsStore,
+    stories: storyRepository,
+    queue,
+    makeProvider,
+  });
 
   const applySettings = (settings: Settings): void => {
     cachedSettings = settings;
@@ -265,6 +281,14 @@ export function bootstrapBackground(): void {
     'learning/remove': (payload) => learningService.remove(payload.videoRecordId),
     'learning/review': (payload) =>
       learningService.reviewCard(payload.videoRecordId, payload.cardId, payload.rating),
+    'stt/transcribe': (payload) => sttService.transcribe(payload),
+    'stt/status': () => sttService.health(),
+    'studio/generate': (payload) => storyService.generate(payload.concept, payload.transcriptHint),
+    'studio/list': () => storyService.list(),
+    'studio/get': async (payload) => ({
+      record: (await storyService.get(payload.id)) ?? null,
+    }),
+    'studio/remove': (payload) => storyService.remove(payload.id),
     'summaries/generate': (payload) =>
       summaryService.generate(payload.videoRecordId),
     'summaries/list': () => summaryService.list(),

@@ -19,6 +19,7 @@ export function VideoTab(props: {
   const [captured, setCaptured] = useState<VideoSummary | null>(null);
   const [localError, setLocalError] = useState<SerializedError | null>(null);
   const [preferredLanguage, setPreferredLanguage] = useState('');
+  const [audioStatus, setAudioStatus] = useState<string | null>(null);
 
   const checkTab = useCallback(async () => {
     setLocalError(null);
@@ -80,6 +81,25 @@ export function VideoTab(props: {
           setLocalError(appError.toJSON());
         }
       }
+    });
+  };
+
+  const transcribeAudio = (file: File) => {
+    void runAction('transcribe-audio', async () => {
+      setLocalError(null);
+      setAudioStatus('Reading file…');
+      const buffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!);
+      const base64 = btoa(binary);
+      setAudioStatus('Transcribing…');
+      const result = await sendRequest('stt/transcribe', {
+        name: file.name,
+        mimeType: file.type,
+        data: base64,
+      });
+      setAudioStatus(`Queued: ${result.taskId}`);
     });
   };
 
@@ -206,6 +226,25 @@ export function VideoTab(props: {
             )}
           </div>
         )}
+      </Section>
+
+      <Section title="Audio transcription (Whisper)">
+        <div className="space-y-2 text-xs">
+          <p className="text-[11px] text-slate-400">
+            Transcribe a local audio/video file with a whisper.cpp server on
+            port 8178. Requires whisper-server running locally.
+          </p>
+          {audioStatus && <p className="text-[10px] text-indigo-300">{audioStatus}</p>}
+          <input
+            type="file"
+            accept="audio/*,video/*"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) transcribeAudio(file);
+            }}
+            className={inputClass}
+          />
+        </div>
       </Section>
     </div>
   );

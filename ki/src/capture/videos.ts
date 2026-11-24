@@ -10,7 +10,7 @@ import type { KeyValueStore } from '../storage/kv';
 
 export interface VideoSummary {
   id: string;
-  platform: 'youtube';
+  platform: 'youtube' | 'file';
   videoId: string;
   url: string;
   title: string;
@@ -42,7 +42,7 @@ function isVideoSummary(value: unknown): value is VideoSummary {
   if (!isRecord(value)) return false;
   return (
     typeof value.id === 'string' &&
-    value.platform === 'youtube' &&
+    (value.platform === 'youtube' || value.platform === 'file') &&
     typeof value.videoId === 'string' &&
     typeof value.url === 'string' &&
     typeof value.title === 'string' &&

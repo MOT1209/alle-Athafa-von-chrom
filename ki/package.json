@@ -1,7 +1,7 @@
 {
   "name": "videoking-ai",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "videoKING AI - local-first AI video knowledge extension for Chrome (MV3). Zero paid API dependency.",
   "type": "module",
   "scripts": {

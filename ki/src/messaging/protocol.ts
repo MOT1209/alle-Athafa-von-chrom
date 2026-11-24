@@ -141,6 +141,24 @@ export interface RequestMap {
     payload: { videoRecordId: string; cardId: string; rating: 'again' | 'hard' | 'good' | 'easy' };
     response: { reviewed: boolean };
   };
+  'stt/transcribe': {
+    payload: { name: string; mimeType?: string; data: string; language?: string };
+    response: { taskId: string; deduped: boolean };
+  };
+  'stt/status': {
+    payload: undefined;
+    response: { available: boolean; error?: string };
+  };
+  'studio/generate': {
+    payload: { concept: string; transcriptHint?: string };
+    response: { taskId: string; deduped: boolean };
+  };
+  'studio/list': { payload: undefined; response: Array<{ id: string; concept: string; title: string; segmentCount: number; createdAt: number }> };
+  'studio/get': {
+    payload: { id: string };
+    response: { record: import('../studio/repository').StoredStory | null };
+  };
+  'studio/remove': { payload: { id: string }; response: { removed: boolean } };
 }
 
 export type RequestType = keyof RequestMap;
@@ -213,6 +231,12 @@ const REQUEST_TYPES: ReadonlySet<string> = new Set<string>([
   'learning/get',
   'learning/remove',
   'learning/review',
+  'stt/transcribe',
+  'stt/status',
+  'studio/generate',
+  'studio/list',
+  'studio/get',
+  'studio/remove',
 ]);
 
 export function isRequestType(value: unknown): value is RequestType {
