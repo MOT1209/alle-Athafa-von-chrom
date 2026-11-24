@@ -20,6 +20,7 @@ export interface VideoSummary {
   captionKind?: 'manual' | 'asr';
   segmentCount: number;
   capturedAt: number;
+  editedAt?: number;
 }
 
 export interface VideoRecord extends VideoSummary {
@@ -78,6 +79,39 @@ export class VideoRepository {
 
   async list(): Promise<VideoSummary[]> {
     return this.readIndex();
+  }
+
+  async listRecords(): Promise<VideoRecord[]> {
+    const index = await this.readIndex();
+    const records: VideoRecord[] = [];
+    for (const summary of index) {
+      const record = await this.get(summary.id);
+      if (record) records.push(record);
+    }
+    return records;
+  }
+
+  async updateTranscript(
+    id: string,
+    transcript: Transcript,
+    editedAt: number = Date.now(),
+  ): Promise<VideoRecord | undefined> {
+    const existing = await this.get(id);
+    if (!existing) return undefined;
+    const updated: VideoRecord = {
+      ...existing,
+      transcript,
+      segmentCount: transcript.segments.length,
+      editedAt,
+    };
+    await this.kv.set(videoRecordKey(id), updated);
+    const index = await this.readIndex();
+    const summary = toSummary(updated);
+    await this.kv.set(
+      VIDEOS_INDEX_KEY,
+      [summary, ...index.filter((entry) => entry.id !== id)].slice(0, INDEX_LIMIT),
+    );
+    return updated;
   }
 
   async remove(id: string): Promise<boolean> {

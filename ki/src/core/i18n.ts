@@ -16,7 +16,7 @@ const en = {
   'app.tagline': 'Local-first video knowledge',
   'app.language': 'العربية',
   'app.phaseNote':
-    'Phases 1-4: local AI runtime, YouTube transcript capture, schema-validated summaries and transcript-grounded chat with citations. Learning tools arrive next.',
+    'Phases 1-5: local AI runtime, YouTube transcript capture, schema-validated summaries, transcript-grounded chat with citations, and transcript editing, search, export and translation. Learning tools arrive next.',
 
   'common.cancel': 'Cancel',
   'common.retry': 'Retry',
@@ -92,6 +92,7 @@ const en = {
   'tab.library': 'Library',
   'tab.summary': 'Summary',
   'tab.chat': 'Chat',
+  'tab.transcript': 'Transcript',
 
   'video.notYoutube': 'Open a YouTube video page, then refresh.',
   'video.noActiveTab': 'No active tab found.',
@@ -192,7 +193,7 @@ const ar: Record<MessageKey, string> = {
   'app.tagline': 'معرفة الفيديو محليًا أولًا',
   'app.language': 'English',
   'app.phaseNote':
-    'المراحل 1-4: بيئة الذكاء الاصطناعي المحلية، والتقاط نصوص YouTube، والملخصات المُتحقق منها، ومحادثة مستندة إلى النص مع استشهادات. أدوات التعلم تصل تاليًا.',
+    'المراحل 1-5: بيئة الذكاء الاصطناعي المحلية، والتقاط نصوص YouTube، والملخصات المُتحقق منها، ومحادثة مستندة إلى النص، وتحرير النص والبحث والتصدير والترجمة. أدوات التعلم تصل تاليًا.',
 
   'common.cancel': 'إلغاء',
   'common.retry': 'إعادة المحاولة',
@@ -268,6 +269,7 @@ const ar: Record<MessageKey, string> = {
   'tab.library': 'المكتبة',
   'tab.summary': 'الملخص',
   'tab.chat': 'المحادثة',
+  'tab.transcript': 'النص',
 
   'video.notYoutube': 'افتح صفحة فيديو على YouTube ثم حدّث.',
   'video.noActiveTab': 'لا توجد علامة تبويب نشطة.',

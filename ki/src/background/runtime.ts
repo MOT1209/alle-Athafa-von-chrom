@@ -22,6 +22,9 @@ import { SummaryRepository } from '../summary/repository';
 import { SummaryService } from '../summary/service';
 import { ChatRepository } from '../chat/repository';
 import { ChatService } from '../chat/service';
+import { TranscriptService } from '../transcripts/service';
+import { TranslationService } from '../transcripts/translation-service';
+import { TranslationRepository } from '../transcripts/translations';
 import { ChromeTabBridge } from '../browser/tabs';
 
 /**
@@ -130,6 +133,17 @@ export function bootstrapBackground(): void {
     queue,
     makeProvider,
   });
+  const transcriptService = new TranscriptService({
+    videos: videoRepository,
+  });
+  const translationRepository = new TranslationRepository(localStore);
+  const translationService = new TranslationService({
+    settings: settingsStore,
+    videos: videoRepository,
+    translations: translationRepository,
+    queue,
+    makeProvider,
+  });
 
   const applySettings = (settings: Settings): void => {
     cachedSettings = settings;
@@ -197,11 +211,40 @@ export function bootstrapBackground(): void {
       record: (await videoRepository.get(payload.id)) ?? null,
     }),
     'videos/remove': async (payload) => {
+      await translationService.removeForVideo(payload.id);
       await summaryService.removeForVideo(payload.id);
       await chatService.removeForVideo(payload.id);
       return {
         removed: await videoRepository.remove(payload.id),
       };
+    },
+    'transcripts/updateSegment': async (payload) => {
+      const result = await transcriptService.updateSegment(
+        payload.videoRecordId,
+        payload.index,
+        payload.text,
+      );
+      return { record: result.record, changed: result.changed };
+    },
+    'transcripts/search': async (payload) => ({
+      hits: await transcriptService.search(payload.query, payload.limit),
+    }),
+    'translations/generate': (payload) =>
+      translationService.generate(payload.videoRecordId, payload.targetLanguage),
+    'translations/list': () => translationService.list(),
+    'translations/get': async (payload) => translationService.get(payload.videoRecordId),
+    'translations/remove': async (payload) => {
+      if (payload.targetLanguage) {
+        return {
+          removed: (
+            await translationService.removeLanguage(
+              payload.videoRecordId,
+              payload.targetLanguage,
+            )
+          ).removed,
+        };
+      }
+      return { removed: await translationService.removeForVideo(payload.videoRecordId) };
     },
     'summaries/generate': (payload) =>
       summaryService.generate(payload.videoRecordId),

@@ -10,9 +10,10 @@ import { ChatTab } from './ChatTab';
 import { LibraryTab } from './LibraryTab';
 import { RuntimeTab } from './RuntimeTab';
 import { SummaryTab } from './SummaryTab';
+import { TranscriptTab } from './TranscriptTab';
 import { VideoTab } from './VideoTab';
 
-type Tab = 'runtime' | 'video' | 'library' | 'summary' | 'chat';
+type Tab = 'runtime' | 'video' | 'library' | 'summary' | 'chat' | 'transcript';
 type Vars = Record<string, string | number>;
 
 export function App() {
@@ -114,6 +115,7 @@ export function App() {
     { id: 'library', labelKey: 'tab.library' },
     { id: 'summary', labelKey: 'tab.summary' },
     { id: 'chat', labelKey: 'tab.chat' },
+    { id: 'transcript', labelKey: 'tab.transcript' },
   ];
 
   return (
@@ -142,7 +144,7 @@ export function App() {
             key={entry.id}
             type="button"
             onClick={() => setTab(entry.id)}
-            className={`flex-1 rounded-md px-2 py-1 text-xs font-medium transition-colors ${
+            className={`flex-1 rounded-md px-1 py-1 text-[10px] font-medium transition-colors ${
               tab === entry.id
                 ? 'bg-indigo-600 text-white'
                 : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
@@ -204,6 +206,14 @@ export function App() {
           runAction={runAction}
           busyAction={busyAction}
           tasks={tasks}
+          language={lang}
+        />
+      )}
+      {tab === 'transcript' && (
+        <TranscriptTab
+          tr={tr}
+          runAction={runAction}
+          busyAction={busyAction}
           language={lang}
         />
       )}

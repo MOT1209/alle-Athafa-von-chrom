@@ -69,9 +69,9 @@ Scope: transcript viewer/editor · translation via local LLM (AR↔EN↔others)
 segment-aligned · exports: TXT/MD/SRT/VTT · search across stored transcripts.
 
 Acceptance:
-- [ ] AR↔EN translation of a real transcript keeps segment alignment
-- [ ] SRT/VTT exports import correctly into a standard player/editor
-- [ ] Editing + search persist locally
+- [x] AR↔EN translation of a real transcript keeps segment alignment
+- [x] SRT/VTT exports import correctly into a standard player/editor
+- [x] Editing + search persist locally
 
 ## Phase 6 — AI Learning Tools (Module 6)
 
