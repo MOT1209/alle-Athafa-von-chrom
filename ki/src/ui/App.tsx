@@ -7,13 +7,14 @@ import type { BackgroundEvent, RuntimeStatus } from '../messaging/protocol';
 import type { Settings } from '../storage/settings';
 import { Button, ErrorNote } from './components';
 import { ChatTab } from './ChatTab';
+import { LearningTab } from './LearningTab';
 import { LibraryTab } from './LibraryTab';
 import { RuntimeTab } from './RuntimeTab';
 import { SummaryTab } from './SummaryTab';
 import { TranscriptTab } from './TranscriptTab';
 import { VideoTab } from './VideoTab';
 
-type Tab = 'runtime' | 'video' | 'library' | 'summary' | 'chat' | 'transcript';
+type Tab = 'runtime' | 'video' | 'library' | 'summary' | 'chat' | 'transcript' | 'learning';
 type Vars = Record<string, string | number>;
 
 export function App() {
@@ -116,6 +117,7 @@ export function App() {
     { id: 'summary', labelKey: 'tab.summary' },
     { id: 'chat', labelKey: 'tab.chat' },
     { id: 'transcript', labelKey: 'tab.transcript' },
+    { id: 'learning', labelKey: 'tab.learning' },
   ];
 
   return (
@@ -214,6 +216,15 @@ export function App() {
           tr={tr}
           runAction={runAction}
           busyAction={busyAction}
+          language={lang}
+        />
+      )}
+      {tab === 'learning' && (
+        <LearningTab
+          tr={tr}
+          runAction={runAction}
+          busyAction={busyAction}
+          tasks={tasks}
           language={lang}
         />
       )}

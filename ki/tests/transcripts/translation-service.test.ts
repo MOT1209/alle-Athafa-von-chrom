@@ -21,7 +21,7 @@ function fakeProvider(reply: string): LlmProvider {
   };
 }
 
-async function makeHarness(targetLanguage = 'ar') {
+async function makeHarness() {
   const kv = new MemoryStore();
   const settings = new SettingsStore(kv);
   await settings.update({ generation: { model: 'm', numCtx: 4096, numPredict: 256 } });
@@ -66,7 +66,7 @@ async function makeHarness(targetLanguage = 'ar') {
 
 describe('transcripts/translation-service', () => {
   it('generates and stores a translation', async () => {
-    const { service, queue, translations } = await makeHarness();
+    const { service, queue } = await makeHarness();
     const { taskId, deduped } = await service.generate('yt_a', 'ar');
     expect(deduped).toBe(false);
     await new Promise<void>((resolve) => {

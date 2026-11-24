@@ -17,6 +17,7 @@
     "test:live:summary": "node scripts/live-summary.mjs",
     "test:live:chat": "node scripts/live-chat.mjs",
     "test:live:translation": "node scripts/live-translation.mjs",
+    "test:live:learning": "node scripts/live-learning.mjs",
     "icons": "node scripts/icons.mjs",
     "e2e": "node scripts/e2e.mjs",
     "smoke": "node scripts/browser-smoke.mjs",

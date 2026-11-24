@@ -80,9 +80,9 @@ transcripts/summaries · schema-validated generation · spaced-repetition-lite
 review queue · study session UI.
 
 Acceptance:
-- [ ] Generated cards/quizzes are grounded in the source text (spot-checkable
+- [x] Generated cards/quizzes are grounded in the source text (spot-checkable
       citations), schema-valid, and reviewable in the UI
-- [ ] Review state persists; no paid service involved
+- [x] Review state persists; no paid service involved
 
 ## Phase 7 — Audio Processing & Transcription (Module 2)
 
